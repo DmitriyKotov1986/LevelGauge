@@ -2,8 +2,11 @@
 #define TCONFIG_H
 
 #include <QString>
+#include <QCoreApplication>
 
 namespace LevelGauge {
+
+static const QString LOG_FILE_NAME = QCoreApplication::applicationDirPath() + "/Log/LevelGauge.log";
 
 class TConfig
 {

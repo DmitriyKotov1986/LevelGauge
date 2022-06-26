@@ -24,8 +24,8 @@ public:
         bool enabled = false;
         qint16 diametr = -1; //диаметр
         qint32 volume = -1; //объем
-        float tilt = 360; //наклон
-        float TCCoef = -999;
+        float tilt = 360.0; //наклон
+        float TCCoef = -999.0;
         qint16 offset = 10000;
         QString product = "na";
     }  TTankConfig;
@@ -34,15 +34,15 @@ public:
         QDateTime dateTime = DEFAULT_DATETIME; //время получения данных
         qint32 volume = -1; //текущий объем
         qint32 mass = -1; //текущая масса
-        float density = -1; //теккущая плотность
-        float TKCorrect = -1000; //температураня коррекция плотности
+        float density = -1.0; //теккущая плотность
+        float TKCorrect = -1000.0; //температураня коррекция плотности
         qint16 height = -1; //текущий уровеньb
-        float water = -1; //текущий уровень воды
-        float temp = -273; //текущая температура
+        float water = -1.0; //текущий уровень воды
+        float temp = -273.0; //текущая температура
     } TTankMeasument;
 
-    typedef QHash<quint8, TTankConfig> TTanksConfig;
-    typedef QHash<quint8, TTankMeasument> TTanksMeasument;
+    typedef QHash<quint8, TTankConfig> TTanksConfigs;
+    typedef QHash<quint8, TTankMeasument> TTanksMeasuments;
 
 public:
     explicit TLevelGauge(QObject* parent = nullptr) : QObject(parent) {}
@@ -52,15 +52,15 @@ public slots:
     virtual void start() = 0;
 
 signals:
-    void getTanksMeasument(const TLevelGauge::TTanksMeasument& tanksMeasument);
-    void getTanksConfig(const TLevelGauge::TTanksConfig& tankConfig);
+    void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
+    void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
     void errorOccurred(const QString& Msg);
 };
 
 } //namespace LevelGauge
 
 //декларируем типы для работы сигналах/слотах
-Q_DECLARE_METATYPE(LevelGauge::TLevelGauge::TTanksMeasument);
-Q_DECLARE_METATYPE(LevelGauge::TLevelGauge::TTanksConfig);
+Q_DECLARE_METATYPE(LevelGauge::TLevelGauge::TTanksMeasuments);
+Q_DECLARE_METATYPE(LevelGauge::TLevelGauge::TTanksConfigs);
 
 #endif // TLEVELGAUGE_H

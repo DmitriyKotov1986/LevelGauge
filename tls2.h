@@ -1,10 +1,14 @@
 #ifndef TLS2_H
 #define TLS2_H
 
+//Qt
 #include <QObject>
 #include <QtNetwork/QTcpSocket>
 #include <QSettings>
-
+#include <QTimer>
+#include <QTextStream>
+#include <QByteArray>
+//My
 #include "tlevelgauge.h"
 #include "tconfig.h"
 
@@ -16,24 +20,43 @@ class TLS2 final : public TLevelGauge
 
 public:
     explicit TLS2(TConfig* cnf, QObject *parent = nullptr);
-    ~TLS2() {};
+    ~TLS2();
 
 public slots:
-    void start() override {};
+    void start() override;
+
+signals:
+    void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
+    void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
+    void errorOccurred(const QString& Msg);
+
+private slots:
+    void readyReadSocket();
+    void errorOccurredSocket(QAbstractSocket::SocketError);
 
 private:
-    QTcpSocket* _socket;
+    void parseAnswer(QByteArray& data);
+    void parseTanksMeasument(const QByteArray& data);
+    void parseTanksEnabled(const QByteArray& data);
+    void parseTanksDiametr(const QByteArray& data);
+    void parseTanksVolume(const QByteArray& data);
+    void parseTanksTilt(const QByteArray& data);
+    void parseTanksTCCoef(const QByteArray& data);
+    void parseTanksOffset(const QByteArray& data);
 
- /*   void ParseAnswer(QByteArray &data);
-    void ParseTanksMeasument(const QByteArray & data);
-    void ParseTanksEnabled(const QByteArray &data);
-    void ParseTanksDiametr(const QByteArray &data);
-    void ParseTanksVolume(const QByteArray &data);
-    void ParseTanksTilt(const QByteArray &data);
-    void ParseTanksTCCoef(const QByteArray &data);
-    void ParseTanksOffset(const QByteArray &data);
+    void skipLine(QTextStream& stream, const int count); //пропускает count строк из потока stream
 
-*/
+    void upDateTanksConfigs(); //отправляет набор команд ля получения конфигурации резервуаров
+    void upDateTanksMeasuments(); //отправляет набор команд для получение результатов измерений
+
+private:
+    TConfig* _cnf = nullptr;
+    QTcpSocket* _socket = nullptr;
+    QTimer* _getDataTimer = nullptr;
+
+    TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
+    TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
+
 };
 
 

@@ -45,8 +45,8 @@ private:
 
     void sendLogMsg(const uint16_t category, const QString& msg); //Сохранения логов
     void saveLogToFile(const QString& msg); //сохраняет сообщение в файл исли произошел сбой записи лога в БД
-    void saveTanksMasumentToDB(const TLevelGauge::TTanksMeasument& tanksMeasument); //Сохранение Измерений в БД
-    void saveTanksConfigToDB(const TLevelGauge::TTanksConfig& tanksConfig); //Сохранение конфирурации резервуаров в БД
+    void saveTanksMasumentToDB(const TLevelGauge::TTanksMeasuments& tanksMeasument); //Сохранение Измерений в БД
+    void saveTanksConfigToDB(const TLevelGauge::TTanksConfigs& tanksConfig); //Сохранение конфирурации резервуаров в БД
 
     void DBQueryExecute(const QString& queryText); //ывполняет запрос к DB
     void DBCommit(); //выполняет commit db
@@ -56,8 +56,8 @@ private slots:
     //консоль
     void getCommand(const QString& cmd);  //получена команда из консоли
     //уровнемер
-    void getTanksMeasument(const TLevelGauge::TTanksMeasument& tanksMeasument);
-    void getTanksConfig(const TLevelGauge::TTanksConfig& tankConfig);
+    void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
+    void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
     void errorOccurredLG(const QString& msg);
     //HTTP
     void sendToHTTPServer();

@@ -181,7 +181,7 @@ void TLevelGaugeMonitoring::saveLogToFile(const QString& msg)
   }
 }
 
-void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasument& tanksMeasument)
+void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasuments& tanksMeasument)
 {
     Q_ASSERT(_levelGauge != nullptr);
     Q_ASSERT(!tanksMeasument.isEmpty());
@@ -211,7 +211,7 @@ void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasu
     DBQueryExecute(queryText);
 }
 
-void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfig& tanksConfig)
+void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfigs& tanksConfig)
 {
     Q_ASSERT(_levelGauge != nullptr);
     Q_ASSERT(!tanksConfig.isEmpty());
@@ -278,7 +278,7 @@ void TLevelGaugeMonitoring::errorDBQuery(const QSqlQuery& query)
     emit finished();
 }
 
-void TLevelGaugeMonitoring::getTanksMeasument(const TLevelGauge::TTanksMeasument& tanksMeasument)
+void TLevelGaugeMonitoring::getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument)
 {
     saveTanksMasumentToDB(tanksMeasument);
 
@@ -286,7 +286,7 @@ void TLevelGaugeMonitoring::getTanksMeasument(const TLevelGauge::TTanksMeasument
                                            "Tanks count: %1").arg(tanksMeasument.size()));
 }
 
-void TLevelGaugeMonitoring::getTanksConfig(const TLevelGauge::TTanksConfig& tanksConfig)
+void TLevelGaugeMonitoring::getTanksConfig(const TLevelGauge::TTanksConfigs& tanksConfig)
 {
     saveTanksConfigToDB(tanksConfig);
 
@@ -382,11 +382,13 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
 
     DBCommit();
 
-    #ifdef Q_DEBUG
+    #ifdef QT_DEBUG
         QFile file("LG.xml");
-        file.open(QIODevice::WriteOnly);
-        file.write(XMLStr.toUtf8());
-        file.close();  */
+        if (file.open(QIODevice::Append)) {
+            file.write(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toUtf8() + ":\r\n");
+            file.write(XMLStr.toUtf8());
+            file.close();
+        }
     #endif
 
     //отправляем запрос
