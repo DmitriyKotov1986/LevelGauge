@@ -2,11 +2,8 @@
 #define TCONFIG_H
 
 #include <QString>
-#include <QCoreApplication>
 
 namespace LevelGauge {
-
-static const QString LOG_FILE_NAME = QCoreApplication::applicationDirPath() + "/Log/LevelGauge.log";
 
 class TConfig
 {
@@ -14,9 +11,6 @@ public:
     static TConfig* config(const QString& configFileName = "")
     {
         static TConfig* _config = nullptr;
-
-        Q_ASSERT((configFileName.isEmpty()) && (_config == nullptr));
-        Q_ASSERT((!configFileName.isEmpty()) && (_config != nullptr));
 
         if (_config == nullptr){
             _config = new TConfig(configFileName);

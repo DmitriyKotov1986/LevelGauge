@@ -296,7 +296,7 @@ void TLevelGaugeMonitoring::getTanksConfig(const TLevelGauge::TTanksConfigs& tan
 
 void LevelGauge::TLevelGaugeMonitoring::errorOccurredLG(const QString& msg)
 {
-    sendLogMsg(MSG_CODE::CODE_ERROR, QString("Error getiing data from level gauge Msg: " + msg));
+    sendLogMsg(MSG_CODE::CODE_ERROR, QString("Error getting data from level gauge Msg: " + msg));
 }
 
 

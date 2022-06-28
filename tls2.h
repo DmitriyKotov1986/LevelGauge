@@ -8,9 +8,12 @@
 #include <QTimer>
 #include <QTextStream>
 #include <QByteArray>
+#include <QQueue>
 //My
 #include "tlevelgauge.h"
 #include "tconfig.h"
+
+
 
 namespace LevelGauge {
 
@@ -26,11 +29,12 @@ public slots:
     void start() override;
 
 signals:
-    void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
-    void errorOccurred(const QString& Msg);
+  /*  void getTanksMeasumentSignal(const TLevelGauge::TTanksMeasuments& tanksMeasument);
+    void getTanksConfigSignal(const TLevelGauge::TTanksConfigs& tankConfig);
+    void errorOccurredSignal(const QString& Msg);*/
 
 private slots:
+    void connentedSocket();
     void readyReadSocket();
     void errorOccurredSocket(QAbstractSocket::SocketError);
 
@@ -49,6 +53,12 @@ private:
     void upDateTanksConfigs(); //отправляет набор команд ля получения конфигурации резервуаров
     void upDateTanksMeasuments(); //отправляет набор команд для получение результатов измерений
 
+    void sendCmd(const QByteArray &cmd);
+    void sendNextCmd();
+    void transferReset();
+
+    void getData();
+
 private:
     TConfig* _cnf = nullptr;
     QTcpSocket* _socket = nullptr;
@@ -57,68 +67,12 @@ private:
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
+    QByteArray readBuffer; //буфер получения данныъ
+    QQueue<QByteArray> cmdQueue; //очередь команд
+    int tick = 0;
+
+    const QString LOG_FILE_NAME = "/Log/LevelGauge.log";
 };
-
-
-/*
- * #include <QObject>
-#include <QQueue>
-#include <QVector>
-#include <QDateTime>
-#include <QtNetwork/QTcpSocket>
-#include <QSettings>
-#include <QByteArray>
-#include <QTimer>
-
-class TLevelGauge : public QTcpSocket
-{
-
-public:
-    explicit TLevelGauge(QSettings &Config, QObject *parent = nullptr);
-    ~TLevelGauge();
-
-    TLevelGaugeData LevelGaugeData;
-
-    void SendCmd(const QByteArray &cmd);
-    void UpDateTanksConfig();
-    void UpDateTanksMeasument();
-
-    TLevelGaugeData &GetTanksInfo();
-
-private:
-
-    QByteArray ReadBuffer;
-    QQueue<QByteArray> CmdQueue;
-    bool Transfering = false; //флаг передачи данных
-    QString LevelGaugeAdr;
-    uint16_t LevelGaugePort;
-    quint8 TLSModel = 2;
-    QTimer WaitAnswerTimer;
-    uint TransferAttempt = 0;
-
-    void SendNextCmd();
-    void TransferReset();
-    void ParseAnswer(QByteArray &data);
-    void ParseTanksMeasument(const QByteArray & data);
-    void ParseTanksEnabled(const QByteArray &data);
-    void ParseTanksDiametr(const QByteArray &data);
-    void ParseTanksVolume(const QByteArray &data);
-    void ParseTanksTilt(const QByteArray &data);
-    void ParseTanksTCCoef(const QByteArray &data);
-    void ParseTanksOffset(const QByteArray &data);
-
-private slots:
-    void onConnected();
-    void onDisconnected();
-    void onErrorOccurred(QAbstractSocket::SocketError Err);
-    void onReadyRead();
-    void onTransferTimeout();
-
-signals:
-    void GetDataComplite();
-    void SendLogMsg(uint16_t Category, const QString &Msg);
-};
-*/
 
 } //namespace LevelGauge
 
