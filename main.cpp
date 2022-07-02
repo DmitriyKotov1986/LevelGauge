@@ -13,15 +13,13 @@ int main(int argc, char *argv[])
     //устаналиваем основные настройки
     QCoreApplication::setApplicationName("LevelGauge");
     QCoreApplication::setOrganizationName("OOO 'SA'");
-    QCoreApplication::setApplicationVersion("0.1a");
+    QCoreApplication::setApplicationVersion(QString("Version:0.2 Build: %1 %2").arg(__DATE__).arg(__TIME__));
 
     setlocale(LC_CTYPE, ""); //настраиваем локаль
 
     //Создаем парсер параметров командной строки
     QCommandLineParser parser;
-    parser.setApplicationDescription("Program for receiving data from the level gauge (make Veeder Root) and sending and sending them to the HTTP server."
-                                     "While the program is running, you can send a TEST command to test the current state or QUIT to shut down"
-                                     "or START/STOP to start/stop send data");
+    parser.setApplicationDescription("Program for receiving data from the level gauge (make Veeder Root) and sending and sending them to the HTTP server.");
     parser.addHelpOption();
     parser.addVersionOption();
 

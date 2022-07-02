@@ -45,24 +45,11 @@ public:
     typedef QHash<quint8, TTankMeasument> TTanksMeasuments;
 
 public:
-    explicit TLevelGauge(QObject* parent = nullptr) : QObject(parent)
-    {
-   /*     QObject::connect(this, SIGNAL(on_getTanksMeasument(const TLevelGauge::TTanksMeasuments&)),
-            SLOT([=](const TLevelGauge::TTanksMeasuments& tanksMeasument){ emit getTanksMeasument(tanksMeasument); }));
-        QObject::connect(this, SIGNAL(on_getTanksConfig(const TLevelGauge::TTanksConfigs&)),
-            SLOT([=](const TLevelGauge::TTanksConfigs& tankConfig){ emit getTanksConfig(tankConfig); }));
-        QObject::connect(this, SIGNAL(on_errorOccurred(const QString& Msg)),
-            SLOT([=](const QString& Msg){ emit errorOccurred(msg); }));*/
-    }
+    explicit TLevelGauge(QObject* parent = nullptr) : QObject(parent) {};
     virtual ~TLevelGauge() {};
 
 public slots:
     virtual void start() = 0;
-
-/*private slots:
-    void on_getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void on_getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
-    void on_errorOccurred(const QString& Msg);*/
 
 signals:
     void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);

@@ -66,7 +66,6 @@ private slots:
     QString timeFromStart() const;
 
 private:
-    TConsole* _console = nullptr;  //консоль
     TLevelGauge* _levelGauge = nullptr; //Класс обработчика уровнемера
     TConfig* _cnf = nullptr; //настройки
     QSqlDatabase _db; //Промежуточная БД

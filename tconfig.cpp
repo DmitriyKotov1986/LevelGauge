@@ -48,17 +48,21 @@ TConfig::TConfig(const QString& configFileName) :
     _srv_LastTankConfigID = ini.value("LastTankConfigID", "0").toUInt();
     _srv_MaxRecord = ini.value("MaxRecord", "10").toUInt();
     ini.endGroup();
+
+    ini.beginGroup("LEVELGAUGE");
+    _lg_Host = ini.value("HOST", "localhost").toString();
+    _lg_Port = ini.value("Port", "10001").toUInt();
+    _lg_TLS = ini.value("TLS", 2).toUInt();
+    ini.endGroup();
 }
 
 bool TConfig::save()
 {
-    qDebug() << "Save configuration to " +  _configFileName;
-
     QSettings ini(_configFileName, QSettings::IniFormat);
 
     if (!ini.isWritable()) {
         _isError = true;
-        _errorString = "Can not write configuration file";
+        _errorString = "Can not write configuration file " +  _configFileName;
         return false;
     }
 
@@ -68,6 +72,8 @@ bool TConfig::save()
     ini.endGroup();
 
     ini.sync();
+
+    qDebug() << "Save configuration to " +  _configFileName;
 
     return true;
 }

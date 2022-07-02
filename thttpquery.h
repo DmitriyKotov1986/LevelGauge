@@ -16,9 +16,6 @@ public:
     static THTTPQuery* HTTPQuery(const QString& url = "", QObject* parent = nullptr) {
         static THTTPQuery* _HTTPQuery = nullptr;
 
-        Q_ASSERT(url.isEmpty() && (_HTTPQuery == nullptr));
-        Q_ASSERT((!url.isEmpty()) && (_HTTPQuery != nullptr));
-
         if (_HTTPQuery == nullptr) {
             _HTTPQuery = new THTTPQuery(url, parent);
         }
@@ -37,7 +34,7 @@ signals:
     void errorOccurred(const QString& Msg);
 
 private slots:
-    void replyFinished(QNetworkReply* resp);                  //конец приема ответа
+    void replyFinished(QNetworkReply* resp); //конец приема ответа
 
 private:
     QNetworkAccessManager* _manager = nullptr; //менеджер обработки соединений

@@ -5,6 +5,8 @@
 
 namespace LevelGauge {
 
+static const QString LOG_FILE_NAME = "/Log/LevelGauge.log"; //имя файла лога
+
 class TConfig
 {
 public:
@@ -26,16 +28,16 @@ public:
     bool save();
 
     //[DATABASE]
-    QString db_Driver() const { return _db_Driver; }
-    QString db_DBName()  const { return _db_DBName; }
-    QString db_UserName() const { return _db_UserName; }
-    QString db_Password() const { return _db_Password; }
-    QString db_ConnectOptions() const { return _db_ConnectOptions; }
-    QString db_Host() const { return _db_Host; }
+    const QString& db_Driver() const { return _db_Driver; }
+    const QString& db_DBName()  const { return _db_DBName; }
+    const QString& db_UserName() const { return _db_UserName; }
+    const QString& db_Password() const { return _db_Password; }
+    const QString& db_ConnectOptions() const { return _db_ConnectOptions; }
+    const QString& db_Host() const { return _db_Host; }
     quint16 db_Port() const { return _db_Port; }
 
-    //[LEVELGAUDE]
-    QString lg_Host() const { return _lg_Host; }
+    //[LEVELGAUGE]
+    const QString& lg_Host() const { return _lg_Host; }
     quint16 lg_Port() const { return _lg_Port; }
     quint16 lg_TLS() const {return _lg_TLS; }
 
@@ -44,17 +46,17 @@ public:
     bool sys_DebugMode() const { return _sys_DebugMode; }
 
     //[SERVER]
-    QString srv_Host() const { return _srv_Host; }
+    const QString& srv_Host() const { return _srv_Host; }
     quint16 srv_Port() const { return _srv_Port; }
-    QString srv_UserName() const { return _srv_UserName; }
-    QString srv_Password() const { return _srv_Password; }
+    const QString& srv_UserName() const { return _srv_UserName; }
+    const QString& srv_Password() const { return _srv_Password; }
     int srv_MaxRecord() const { return _srv_MaxRecord; }
     int srv_LastTankConfigID() const { return _srv_LastTankConfigID; }
     void set_srv_LastTankConfigID(const int srv_LastTankConfigID) { _srv_LastTankConfigID = srv_LastTankConfigID; }
     int srv_LastTankMeasumentID() const { return _srv_LastTankMeasumentID; }
     void set_srv_LastTankMeasumentID(const int srv_LastTankMeasumentID) { _srv_LastTankMeasumentID = srv_LastTankMeasumentID; }
 
-    QString errorString() const { return _errorString; }
+    const QString& errorString() const { return _errorString; }
     bool isError() const {return _isError; }
 
 private:

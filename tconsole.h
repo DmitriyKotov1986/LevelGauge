@@ -20,7 +20,7 @@ public:
     {
         static TConsole* _console = nullptr;
 
-        Q_ASSERT((_console != nullptr) && (parent != nullptr));
+   //     Q_ASSERT((_console != nullptr) && (parent != nullptr));
 
         if (_console == nullptr){
             _console = new TConsole(parent);

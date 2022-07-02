@@ -13,11 +13,9 @@ CONFIG -= app_bundle
 SOURCES += \
         main.cpp \
         tconfig.cpp \
-        tconsole.cpp \
         thttpquery.cpp \
         tlevelgaugemonitoring.cpp \
-        tls2.cpp \
-        twatchdog.cpp
+        tls2.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -26,12 +24,10 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     tconfig.h \
-    tconsole.h \
     thttpquery.h \
     tlevelgauge.h \
     tlevelgaugemonitoring.h \
-    tls2.h \
-    twatchdog.h
+    tls2.h
 
 DISTFILES += \
     ToDo

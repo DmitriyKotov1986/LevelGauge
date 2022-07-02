@@ -13,8 +13,6 @@
 #include "tlevelgauge.h"
 #include "tconfig.h"
 
-
-
 namespace LevelGauge {
 
 class TLS2 final : public TLevelGauge
@@ -28,15 +26,11 @@ public:
 public slots:
     void start() override;
 
-signals:
-  /*  void getTanksMeasumentSignal(const TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void getTanksConfigSignal(const TLevelGauge::TTanksConfigs& tankConfig);
-    void errorOccurredSignal(const QString& Msg);*/
-
 private slots:
     void connentedSocket();
     void readyReadSocket();
     void errorOccurredSocket(QAbstractSocket::SocketError);
+    void getData();
 
 private:
     void parseAnswer(QByteArray& data);
@@ -57,8 +51,6 @@ private:
     void sendNextCmd();
     void transferReset();
 
-    void getData();
-
 private:
     TConfig* _cnf = nullptr;
     QTcpSocket* _socket = nullptr;
@@ -69,9 +61,7 @@ private:
 
     QByteArray readBuffer; //буфер получения данныъ
     QQueue<QByteArray> cmdQueue; //очередь команд
-    int tick = 0;
-
-    const QString LOG_FILE_NAME = "/Log/LevelGauge.log";
+    int tick = 0; //номер такта
 };
 
 } //namespace LevelGauge

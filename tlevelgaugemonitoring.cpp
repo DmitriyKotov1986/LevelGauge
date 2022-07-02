@@ -36,7 +36,7 @@ TLevelGaugeMonitoring::TLevelGaugeMonitoring(TConfig* cnf, QObject* parent /* = 
     QThread* HTTPQueryThread = new QThread(this);
     _HTTPQuery->moveToThread(HTTPQueryThread);
 
-    QObject::connect(this, SIGNAL(send(const QByteArray&)), _HTTPQuery, SLOT(sendHTTP(const QByteArray&)));
+    QObject::connect(this, SIGNAL(sendHTTP(const QByteArray&)), _HTTPQuery, SLOT(send(const QByteArray&)));
     QObject::connect(_HTTPQuery, SIGNAL(getAnswer(const QByteArray&)), SLOT(getAnswerHTTP(const QByteArray&)));
     QObject::connect(_HTTPQuery, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredHTTP(const QString&)));
 
@@ -45,20 +45,16 @@ TLevelGaugeMonitoring::TLevelGaugeMonitoring(TConfig* cnf, QObject* parent /* = 
 
     HTTPQueryThread->start();
 
-    //создаем поток обработки консоли
-    _console = TConsole::Console(this);
-    QObject::connect(_console, SIGNAL(getCommand(const QString&)), this, SLOT(getCommand(const QString&)));
-
    //подключаем уровнемер
     _levelGauge = loadLG();
     QThread* levelGaugeThread = new QThread(this);
     _levelGauge->moveToThread(levelGaugeThread);
 
     QObject::connect(this, SIGNAL(startLG()), _levelGauge, SLOT(start()));
-    QObject::connect(_levelGauge, SIGNAL(getTanksMeasument(const TLevelGauge::TTanksMeasument&)),
-                     SLOT(getTanksMeasument(const TLevelGauge::TTanksMeasument&)));
-    QObject::connect(_levelGauge, SIGNAL(getTanksConfig(const TLevelGauge::TTanksConfig&)),
-                     SLOT(getTankConfig(const TLevelGauge::TTanksConfig&)));
+    QObject::connect(_levelGauge, SIGNAL(getTanksMeasument(const TLevelGauge::TTanksMeasuments&)),
+                     SLOT(getTanksMeasument(const TLevelGauge::TTanksMeasuments&)));
+    QObject::connect(_levelGauge, SIGNAL(getTanksConfig(const TLevelGauge::TTanksConfigs&)),
+                     SLOT(getTanksConfig(const TLevelGauge::TTanksConfigs&)));
     QObject::connect(_levelGauge, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredLG(const QString&)));
 
     QObject::connect(this, SIGNAL(finished()), levelGaugeThread, SLOT(quit())); //сигнал на завершение
@@ -79,18 +75,11 @@ TLevelGaugeMonitoring::TLevelGaugeMonitoring(TConfig* cnf, QObject* parent /* = 
 
 TLevelGaugeMonitoring::~TLevelGaugeMonitoring()
 {
-    Q_ASSERT(_console != nullptr);
     Q_ASSERT(_levelGauge != nullptr);
     Q_ASSERT(_sendHTTPTimer != nullptr);
     Q_ASSERT(_HTTPQuery != nullptr);
 
     sendLogMsg(MSG_CODE::CODE_OK, "Successfully finished");
-
-    if (_console != nullptr) {
-        _console->stop();
-        _console->wait(1000);
-        _console->deleteLater();
-    }
 
     if (_levelGauge != nullptr) {
         //ничего не делаем. остановится  по сигналу finished
@@ -111,10 +100,8 @@ TLevelGaugeMonitoring::~TLevelGaugeMonitoring()
     }
 }
 
-
 void TLevelGaugeMonitoring::start()
 {
-    Q_ASSERT(_console != nullptr);
     Q_ASSERT(_HTTPQuery != nullptr);
     Q_ASSERT(_levelGauge != nullptr);
     Q_ASSERT(_sendHTTPTimer != nullptr);
@@ -127,9 +114,6 @@ void TLevelGaugeMonitoring::start()
 
         emit finished();
     };
-
-    //Подключаем обработку приема консольных команд
-    _console->start(QThread::LowPriority);
 
     //запускаем опрос уровнемеров
     emit startLG();
@@ -173,10 +157,10 @@ void TLevelGaugeMonitoring::sendLogMsg(uint16_t category, const QString& msg)
 
 void TLevelGaugeMonitoring::saveLogToFile(const QString& msg)
 {
-  if (_cnf->sys_DebugMode()) {
-    QFile f(QCoreApplication::applicationDirPath() + "/Log/LevelGauge.log");
-    f.open(QFile::Append);
-    f.write(msg.toUtf8() + "\n");
+  if (_cnf->sys_DebugMode()) {  
+    QFile f(QCoreApplication::applicationDirPath() + LOG_FILE_NAME);
+    f.open(QFile::WriteOnly | QFile::Append | QFile::Text);
+    f.write(QString("%1\n%2\n\n").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")).arg(msg.toUtf8()).toUtf8());
     f.close();
   }
 }
@@ -191,24 +175,24 @@ void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasu
         return; //если нечего записывать - выходим
     }
 
-    QString queryText = "INSERT INTO TANKSMEASUMENTS (TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP) "
-                        " VALUES ";
+
     for (const auto& tankNumber : tanksMeasument.keys()) {
+        //firebird not support multirow insert
         TLevelGauge::TTankMeasument tmp = tanksMeasument[tankNumber];
-        queryText += "(" + QString::number(tankNumber) + ", " +
-                     "'" + tmp.dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
-                     QString::number(tmp.volume, 'f', 0) + ", " +
-                     QString::number(tmp.mass, 'f', 0) + ", " +
-                     QString::number(tmp.density, 'f', 1) + ", " +
-                     QString::number(tmp.TKCorrect, 'f', 2) + ", " +
-                     QString::number(tmp.height, 'f', 0) + ", " +
-                     QString::number(tmp.water, 'f', 1) + ", " +
-                     QString::number(tmp.temp, 'f', 1) + "), ";
-    }
+        QString queryText = "INSERT INTO TANKSMEASUMENTS (TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP) "
+                            " VALUES ("
+                            + QString::number(tankNumber) + ", " +
+                            "'" + tmp.dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
+                            QString::number(tmp.volume, 'f', 0) + ", " +
+                            QString::number(tmp.mass, 'f', 0) + ", " +
+                            QString::number(tmp.density, 'f', 1) + ", " +
+                            QString::number(tmp.TKCorrect, 'f', 2) + ", " +
+                            QString::number(tmp.height, 'f', 0) + ", " +
+                            QString::number(tmp.water, 'f', 1) + ", " +
+                            QString::number(tmp.temp, 'f', 1) + ")";
 
-    queryText.chop(2); //удаляем конечный ", "
-
-    DBQueryExecute(queryText);
+        DBQueryExecute(queryText);
+    }  
 }
 
 void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfigs& tanksConfig)
@@ -221,24 +205,23 @@ void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfigs
         return; //если нечего записывать - выходим
     }
 
-    QString queryText = "INSERT INTO TANKSCONFIG (TANK_NUMBER, DATE_TIME, ENABLED, DIAMETR, VOLUME, TILT, TCCOEF, OFFSET, PRODUCT) "
-                        "VALUES ";
     for (const auto& numberTank : tanksConfig.keys()) {
+        //firebird not support multirow insert
         TLevelGauge::TTankConfig tmp = tanksConfig[numberTank];
-        queryText = "(" + QString::number(numberTank) + ", " +
-                    "'" + tmp.dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
-                    QString::number(tmp.enabled) + ", " +
-                    QString::number(tmp.diametr, 'f', 0) + ", " +
-                    QString::number(tmp.volume, 'f', 0) + ", " +
-                    QString::number(tmp.tilt, 'f', 1) + ", " +
-                    QString::number(tmp.TCCoef, 'f', 2) + ", " +
-                    QString::number(tmp.offset, 'f', 0) + ", " +
-                    "'" + tmp.product + "'), ";
-    }
+        QString queryText = "INSERT INTO TANKSCONFIG (TANK_NUMBER, DATE_TIME, ENABLED, DIAMETR, VOLUME, TILT, TCCOEF, OFFSET, PRODUCT) "
+                            "VALUES ( " +
+                            QString::number(numberTank) + ", " +
+                            "'" + tmp.dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
+                            QString::number(tmp.enabled) + ", " +
+                            QString::number(tmp.diametr, 'f', 0) + ", " +
+                            QString::number(tmp.volume, 'f', 0) + ", " +
+                            QString::number(tmp.tilt, 'f', 1) + ", " +
+                            QString::number(tmp.TCCoef, 'f', 2) + ", " +
+                            QString::number(tmp.offset, 'f', 0) + ", " +
+                            "'" + tmp.product + "')";
 
-    queryText.chop(2); //удаляем конечный ", "
-
-    DBQueryExecute(queryText);
+        DBQueryExecute(queryText);
+    } 
 }
 
 void TLevelGaugeMonitoring::DBQueryExecute(const QString &queryText)
@@ -432,18 +415,21 @@ void TLevelGaugeMonitoring::getAnswerHTTP(const QByteArray &answer)
         qDebug() << "->Answer: " << answer;
     }
 
-   _sending = false;
+    _sending = false;
 
-   if (answer.left(2) == "OK") {
-        QString queryText = "DELETE FROM TANKSMEASUMENTS "
-                            "WHERE ID IN (" + _sendingTanksMasumentsID.join(",") + ")";
+    if (answer.left(2) == "OK") {
+        if (!_sendingTanksMasumentsID.isEmpty()) {
+            QString queryText = "DELETE FROM TANKSMEASUMENTS "
+                                "WHERE ID IN (" + _sendingTanksMasumentsID.join(",") + ")";
 
-        DBQueryExecute(queryText);
+            DBQueryExecute(queryText);
+        }
+        if (!_sendingTanksConfigsID.empty()) {
+            QString queryText = "DELETE FROM TANKSCONFIG "
+                                "WHERE ID IN (" + _sendingTanksConfigsID.join(",") + ")";
 
-        queryText = "DELETE FROM TANKSCONFIG "
-                    "WHERE ID IN (" + _sendingTanksConfigsID.join(",") + ")";
-
-        DBQueryExecute(queryText);
+            DBQueryExecute(queryText);
+        }
 
         //если на удаление было записей _cnf->srv_MaxRecord() значит скорее всего в БД есть еще записи
         //поэтому повторяем отправку данных

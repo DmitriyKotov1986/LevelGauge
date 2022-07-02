@@ -11,14 +11,6 @@ TLS2::TLS2(TConfig* cnf, QObject* parent) :
     _cnf(cnf)
 {
     Q_ASSERT(cnf != nullptr);
-/*
-    QObject::connect(this, SIGNAL(getTanksMeasumentSignal(const TLevelGauge::TTanksMeasuments&)),
-                     SLOT(on_getTanksMeasument(const TLevelGauge::TTanksMeasuments&)));
-    QObject::connect(this, SIGNAL(getTanksConfigSignal(const TLevelGauge::TTanksConfigs&)),
-                     SLOT(on_getTanksConfigSignal(const TLevelGauge::TTanksConfigs&)));
-    QObject::connect(this, SIGNAL(errorOccurredSignal(const QString&)),
-                     SLOT(on_errorOccurredSignal(const QString&)));
-                     */
 }
 
 TLS2::~TLS2()
@@ -46,6 +38,8 @@ void TLS2::start()
     QObject::connect(_getDataTimer, SIGNAL(timeout()), SLOT(getData()));
 
     _getDataTimer->start(_cnf->sys_Interval());
+
+    getData();
 }
 
 void TLS2::connentedSocket()
@@ -80,7 +74,8 @@ void TLS2::parseTanksMeasument(const QByteArray& data)
         textStream.readLine();
 
         #ifdef QT_DEBUG
-            qDebug() << "Num=" << number <<
+            qDebug() << "parseTanksMeasument: " <<
+                        "Num=" << number <<
                         "Volume=" << tmp.volume <<
                         "Mass=" << tmp.mass <<
                         "Density=" << tmp.density <<
@@ -161,8 +156,8 @@ void TLS2::parseTanksDiametr(const QByteArray& data)
         //считываем диаметр
         qint16 tmp;
         textStream >> tmp; //в случае ошибки tmp будет = 0
-        if ((tmp < 10) || (tmp > 20000)) {
-            emit errorOccurred("parseTanksDiametr: Tank:" + QString::number(number) + " Invalid value received. Diaaetr:" + QString::number(tmp) + " Value ignored.");
+        if (((tmp < 10) || (tmp > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)){
+            emit errorOccurred("parseTanksDiametr: Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
 
@@ -177,9 +172,7 @@ void TLS2::parseTanksVolume(const QByteArray& data)
 {
     QTextStream textStream(data);
     //Пропускаем 6 строчек
-    for (uint8_t i = 0; i <= 5; ++i ) {
-        textStream.readLine();
-    }
+    skipLine(textStream, 6);
 
     while (!textStream.atEnd())  {
         uint number;
@@ -194,7 +187,7 @@ void TLS2::parseTanksVolume(const QByteArray& data)
 
         qint32 tmp;
         textStream >> tmp;
-        if ((tmp < 10) || (tmp > 10000000)) {
+        if (((tmp < 10) || (tmp > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
             emit errorOccurred("parseTanksVolume: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -224,7 +217,7 @@ void TLS2::parseTanksTilt(const QByteArray& data)
 
         float tmp;
         textStream >> tmp;
-        if ((tmp < -180.0) || (tmp > 180.0)) {
+        if (((tmp < -180.0) || (tmp > 180.0)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
             emit errorOccurred("parseTanksTilte: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -253,7 +246,7 @@ void TLS2::parseTanksTCCoef(const QByteArray& data)
 
         float tmp;
         textStream >> tmp;
-        if ((tmp < -100) || (tmp > 100)) {
+        if (((tmp < -100) || (tmp > 100)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
             emit errorOccurred("parseTanksTCCoef: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -273,6 +266,7 @@ void TLS2::parseTanksOffset(const QByteArray &data)
     QTextStream textStream(data);
     //Пропускаем 5 строчек
     skipLine(textStream, 5);
+
     while (!textStream.atEnd())  {
         uint number;
         textStream >> number;
@@ -283,7 +277,7 @@ void TLS2::parseTanksOffset(const QByteArray &data)
 
         qint16 tmp;
         textStream >> tmp;
-        if ((tmp < -100) || (tmp > 1000)) {
+        if (((tmp < -100) || (tmp > 1000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
             emit errorOccurred("parseTankPffset: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -297,8 +291,8 @@ void TLS2::parseAnswer(QByteArray &data)
 {
     #ifdef QT_DEBUG
         QFile file(QCoreApplication::applicationDirPath() + LOG_FILE_NAME);
-        if (file.open(QIODevice::Append)) {
-            file.write(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toUtf8() + " LG answer:\r\n");
+        if (file.open(QFile::WriteOnly | QFile::Append | QFile::Text)) {
+            file.write(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toUtf8() + " LG answer:\n");
             file.write(data);
             file.close();
         }
@@ -350,8 +344,8 @@ void TLS2::parseAnswer(QByteArray &data)
             for (const auto& tankNumber : _tanksConfigs.keys()) {
                 _tanksConfigs[tankNumber].dateTime = QDateTime::currentDateTime();
             }
-            emit getTanksMeasument(_tanksMeasuments);
-            _tanksMeasuments.clear();
+            emit getTanksConfig(_tanksConfigs);
+            _tanksConfigs.clear();
         }
     }
     else {
@@ -369,13 +363,11 @@ void TLS2::upDateTanksConfigs()
     sendCmd("I60800"); //наклон
     sendCmd("I60900"); //Температурный коэф
     sendCmd("I60C00"); //смещение по высоте
-    sendCmd("");
 }
 
 void TLS2::upDateTanksMeasuments()
 {
     sendCmd("I21400"); //текущие измерения
-    sendCmd("");
 }
 
 void TLS2::sendCmd(const QByteArray &cmd)
@@ -384,11 +376,11 @@ void TLS2::sendCmd(const QByteArray &cmd)
     if (_socket != nullptr) {
         return;
     }
-    //если пришлп пустая команда - запускаем отрпавку данных
+    //если пришла пустая команда - запускаем отрпавку данных
     if (cmd.isEmpty()) {
         if (!cmdQueue.isEmpty()) {
             _socket = new QTcpSocket;
-            QObject::connect(_socket, SIGNAL(connented()), SLOT(connentedSocket()));
+            QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
             QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
             QObject::connect(_socket, SIGNAL(errorOccurred(QAbstractSocket::SocketError)), SLOT(errorOccurredSocket(QAbstractSocket::SocketError)));
             //подлючаемся к уровнемеру
@@ -417,7 +409,7 @@ void TLS2::sendNextCmd()
 
         #ifdef QT_DEBUG
             QFile file(QCoreApplication::applicationDirPath() + LOG_FILE_NAME);
-            if (file.open(QIODevice::Append)) {
+            if (file.open(QFile::WriteOnly | QFile::Append | QFile::Text)) {
                 file.write(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toUtf8() + " LG request:\r\n");
                 file.write(cmd);
                 file.close();
@@ -446,9 +438,9 @@ void TLS2::getData()
     if (((tick % 100) == 0) || (tick == 0)) {
         upDateTanksConfigs();
     }
-    else {
-        upDateTanksMeasuments();
-    }
+    upDateTanksMeasuments();
+    sendCmd("");
+
     ++tick;
 }
 
