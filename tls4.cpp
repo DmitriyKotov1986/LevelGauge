@@ -1,4 +1,4 @@
-#include "tls2.h"
+#include "tls4.h"
 
 //Qt
 #include <QCoreApplication>
@@ -7,14 +7,14 @@
 
 using namespace LevelGauge;
 
-TLS2::TLS2(TConfig* cnf, QObject* parent) :
+TLS4::TLS4(TConfig* cnf, QObject* parent) :
     TLevelGauge(parent),
     _cnf(cnf)
 {
     Q_ASSERT(cnf != nullptr);
 }
 
-TLS2::~TLS2()
+TLS4::~TLS4()
 {
     Q_ASSERT(_socket != nullptr);
 
@@ -30,7 +30,7 @@ TLS2::~TLS2()
     }
 }
 
-void TLS2::start()
+void TLS4::start()
 {
     Q_ASSERT(_socket == nullptr);
 
@@ -43,13 +43,13 @@ void TLS2::start()
     getData();
 }
 
-void TLS2::connentedSocket()
+void TLS4::connentedSocket()
 {
     sendNextCmd();
     //ответ придет в readData()
 }
 
-void TLS2::parseTanksMeasument(const QByteArray& data)
+void TLS4::parseTanksMeasument(const QByteArray& data)
 {
     Q_ASSERT(_tanksMeasuments.isEmpty());
 
@@ -64,10 +64,16 @@ void TLS2::parseTanksMeasument(const QByteArray& data)
         QString IgnoreStr;
         textStream >> IgnoreStr; //здесь записан имя продукта, но мы ее игнорируем
         textStream >> tmp.volume;
-        textStream >> tmp.mass;
+        //Mass
+        float currValue;
+        textStream >> currValue;
+        tmp.mass = static_cast<int>(currValue);
+        //density
         textStream >> tmp.density;
-        textStream >> tmp.TKCorrect;
-        textStream >> tmp.height;
+        //height
+        textStream >> currValue;
+        tmp.height = static_cast<int>(currValue);
+
         textStream >> tmp.water;
         textStream >> tmp.temp;
 
@@ -103,7 +109,7 @@ void TLS2::parseTanksMeasument(const QByteArray& data)
     }
 }
 
-void TLS2::parseTanksEnabled(const QByteArray& data)
+void TLS4::parseTanksEnabled(const QByteArray& data)
 {
     QTextStream textStream(data);
     //Пропускаем 6 строчек
@@ -131,7 +137,7 @@ void TLS2::parseTanksEnabled(const QByteArray& data)
     }
 }
 
-void TLS2::parseTanksDiametr(const QByteArray& data)
+void TLS4::parseTanksDiametr(const QByteArray& data)
 {
     QTextStream textStream(data);
     //Пропускаем 6 строчек
@@ -161,7 +167,7 @@ void TLS2::parseTanksDiametr(const QByteArray& data)
     }
 }
 
-void TLS2::parseTanksVolume(const QByteArray& data)
+void TLS4::parseTanksVolume(const QByteArray& data)
 {
     QTextStream textStream(data);
     //Пропускаем 6 строчек
@@ -191,7 +197,7 @@ void TLS2::parseTanksVolume(const QByteArray& data)
      }
 }
 
-void TLS2::parseTanksTilt(const QByteArray& data)
+void TLS4::parseTanksTilt(const QByteArray& data)
 {
     QTextStream textStream(data);
     //Пропускаем 6 строчек
@@ -220,7 +226,7 @@ void TLS2::parseTanksTilt(const QByteArray& data)
     }
 }
 
-void TLS2::parseTanksTCCoef(const QByteArray& data)
+void TLS4::parseTanksTCCoef(const QByteArray& data)
 {
     QTextStream textStream(data);
     //Пропускаем 6 строчек
@@ -249,16 +255,16 @@ void TLS2::parseTanksTCCoef(const QByteArray& data)
     }
 }
 
-void TLS2::skipLine(QTextStream &stream, const int count)
+void TLS4::skipLine(QTextStream &stream, const int count)
 {
     for (int i = 0; i < count; ++i ) stream.readLine();
 }
 
-void TLS2::parseTanksOffset(const QByteArray &data)
+void TLS4::parseTanksOffset(const QByteArray &data)
 {
     QTextStream textStream(data);
-    //Пропускаем 5 строчек
-    skipLine(textStream, 5);
+    //Пропускаем 6 строчек
+    skipLine(textStream, 6);
 
     while (!textStream.atEnd())  {
         uint number;
@@ -280,7 +286,7 @@ void TLS2::parseTanksOffset(const QByteArray &data)
     }
 }
 
-void TLS2::parseAnswer(QByteArray &data)
+void TLS4::parseAnswer(QByteArray &data)
 {
     LevelGauge::writeDebugLogFile("LG answer:", QString(data));
 
@@ -341,7 +347,7 @@ void TLS2::parseAnswer(QByteArray &data)
     }
 }
 
-void TLS2::upDateTanksConfigs()
+void TLS4::upDateTanksConfigs()
 {
     sendCmd("I60100"); //продукт и вкл
     sendCmd("I60700"); //диаметр
@@ -351,12 +357,12 @@ void TLS2::upDateTanksConfigs()
     sendCmd("I60C00"); //смещение по высоте
 }
 
-void TLS2::upDateTanksMeasuments()
+void TLS4::upDateTanksMeasuments()
 {
     sendCmd("I21400"); //текущие измерения
 }
 
-void TLS2::sendCmd(const QByteArray &cmd)
+void TLS4::sendCmd(const QByteArray &cmd)
 {
     //если _socket еще не определен - значит передача данных еще не идет
     if (_socket != nullptr) {
@@ -379,7 +385,7 @@ void TLS2::sendCmd(const QByteArray &cmd)
     }
 }
 
-void TLS2::sendNextCmd()
+void TLS4::sendNextCmd()
 {
     Q_ASSERT(_socket != nullptr);
 
@@ -397,7 +403,7 @@ void TLS2::sendNextCmd()
     }
 }
 
-void TLS2::transferReset()
+void TLS4::transferReset()
 {
     Q_ASSERT(_socket != nullptr);
 
@@ -411,7 +417,7 @@ void TLS2::transferReset()
     readBuffer.clear();
 }
 
-void TLS2::getData()
+void TLS4::getData()
 {
     //раз в 100 тактов запрашиваем конфигурацию резервуаров
     if (((tick % 100) == 0) || (tick == 0)) {
@@ -423,13 +429,13 @@ void TLS2::getData()
     ++tick;
 }
 
-void TLS2::errorOccurredSocket(QAbstractSocket::SocketError)
+void TLS4::errorOccurredSocket(QAbstractSocket::SocketError)
 {
     emit errorOccurred(QString("Socket error.Code: %1. Msg: %2").arg(_socket->error()).arg(_socket->errorString()));
     transferReset();
 }
 
-void TLS2::readyReadSocket()
+void TLS4::readyReadSocket()
 {
     //считываем буфер
     readBuffer += _socket->readAll();

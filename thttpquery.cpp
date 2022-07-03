@@ -1,6 +1,10 @@
 #include "thttpquery.h"
 
+//Qt
 #include <QCoreApplication>
+
+//My
+#include "common.h"
 
 using namespace LevelGauge;
 
@@ -27,13 +31,16 @@ THTTPQuery::~THTTPQuery()
 void THTTPQuery::send(const QByteArray& data)
 {
     //создаем и отправляем запрос
-    QNetworkRequest Request(_url);
-    Request.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
-    Request.setHeader(QNetworkRequest::UserAgentHeader, QCoreApplication::applicationName());
-    Request.setHeader(QNetworkRequest::ContentLengthHeader, QString::number(data.size()));
-    Request.setTransferTimeout(30000);
+    QNetworkRequest request(_url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+    request.setHeader(QNetworkRequest::UserAgentHeader, QCoreApplication::applicationName());
+    request.setHeader(QNetworkRequest::ContentLengthHeader, QString::number(data.size()));
+    request.setTransferTimeout(30000);
 
-    QNetworkReply* resp = _manager->post(Request, data);
+    QNetworkReply* resp = _manager->post(request, data);
+
+    writeDebugLogFile("HTTP request:", QString(data));
+
     if (resp == nullptr) {
         emit errorOccurred("Send HTTP request fail");
         return;
@@ -45,7 +52,11 @@ void THTTPQuery::replyFinished(QNetworkReply *resp)
     Q_ASSERT(resp);
 
     if (resp->error() == QNetworkReply::NoError) {
-        emit getAnswer(resp->readAll());
+        QByteArray answer = resp->readAll();
+
+        writeDebugLogFile("HTTP request:", QString(answer));
+
+        emit getAnswer(answer);
     }
     else {
         emit errorOccurred("HTTP request fail. Code: " + QString::number(resp->error()) + " Msg: " + resp->errorString());

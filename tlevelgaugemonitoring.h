@@ -53,8 +53,6 @@ private:
     void errorDBQuery(const QSqlQuery& query); //обрабатывает ошибку выполнения запроса к DB
 
 private slots:
-    //консоль
-    void getCommand(const QString& cmd);  //получена команда из консоли
     //уровнемер
     void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
     void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
@@ -63,7 +61,6 @@ private slots:
     void sendToHTTPServer();
     void getAnswerHTTP(const QByteArray &answer); //получен ответ от сервеера
     void errorOccurredHTTP(const QString& msg); //ошибка передачи данных на се
-    QString timeFromStart() const;
 
 private:
     TLevelGauge* _levelGauge = nullptr; //Класс обработчика уровнемера
@@ -78,8 +75,6 @@ private:
     QStringList _sendingTanksConfigsID;  //ID записей в таблице конфигурации емкостей которые сейчас отправляются
     quint64 _maxTanksMasumentsID = 0;
     quint64 _maxTanksConfigsID = 0;
-
-    QTime _timer = QTime::currentTime(); //таймер отсчитывающий время с момента запуска (нужен для вывода отладки)
 };
 
 } //namespace LevelGauge

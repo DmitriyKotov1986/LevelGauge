@@ -2,6 +2,7 @@
 #define TCONFIG_H
 
 #include <QString>
+#include <QFile>
 
 namespace LevelGauge {
 

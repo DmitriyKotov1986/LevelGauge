@@ -10,6 +10,8 @@
 #include <QThread>
 //My
 #include "tls2.h"
+#include "tls4.h"
+#include "common.h"
 
 using namespace LevelGauge;
 
@@ -128,7 +130,7 @@ TLevelGauge *TLevelGaugeMonitoring::loadLG()
 {
     switch (_cnf->lg_TLS()) {
     case 2: return new TLS2(_cnf);
-   // case 4: return new TLS4(_cnf);
+    case 4: return new TLS4(_cnf);
     default: {
         QString msg = "Undefine type of level gauge. Check blok [LEVELGAUGE]/'TLS' in config file";
         saveLogToFile(msg);
@@ -143,7 +145,7 @@ TLevelGauge *TLevelGaugeMonitoring::loadLG()
 void TLevelGaugeMonitoring::sendLogMsg(uint16_t category, const QString& msg)
 {
     if (_cnf->sys_DebugMode()) {
-        qDebug() << QTime::currentTime().toString("hh:mm:ss") << msg << timeFromStart();
+        qDebug() << QTime::currentTime().toString("hh:mm:ss") << msg;
     }
 
     QString queryText = "INSERT INTO LOG (CATEGORY, SENDER, MSG) VALUES ( "
@@ -157,12 +159,7 @@ void TLevelGaugeMonitoring::sendLogMsg(uint16_t category, const QString& msg)
 
 void TLevelGaugeMonitoring::saveLogToFile(const QString& msg)
 {
-  if (_cnf->sys_DebugMode()) {  
-    QFile f(QCoreApplication::applicationDirPath() + LOG_FILE_NAME);
-    f.open(QFile::WriteOnly | QFile::Append | QFile::Text);
-    f.write(QString("%1\n%2\n\n").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")).arg(msg.toUtf8()).toUtf8());
-    f.close();
-  }
+    writeLogFile("Log:", msg);
 }
 
 void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasuments& tanksMeasument)
@@ -365,32 +362,12 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
 
     DBCommit();
 
-    #ifdef QT_DEBUG
-        QFile file("LG.xml");
-        if (file.open(QIODevice::Append)) {
-            file.write(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toUtf8() + ":\r\n");
-            file.write(XMLStr.toUtf8());
-            file.close();
-        }
-    #endif
-
     //отправляем запрос
-    if (_cnf->sys_DebugMode()) {
-        qDebug() << "Sending a request. Size: " << XMLStr.toUtf8().size() << "Byte " << timeFromStart();
-    }
+    sendLogMsg(MSG_CODE::CODE_INFORMATION, QString("Sending a request. Size: %1 byte").arg(XMLStr.toUtf8().size()));
 
     _sending = true; //устанавливаем флаг
 
     emit sendHTTP(XMLStr.toUtf8());
-}
-
-
-void TLevelGaugeMonitoring::getCommand(const QString &cmd)
-{
-    if (cmd == "QUIT\n") {   //если пришла команда QUIT - то выходим
-        qDebug() << "OK";
-        emit finished();
-    }
 }
 
 void TLevelGaugeMonitoring::errorOccurredHTTP(const QString& msg)
@@ -403,18 +380,8 @@ void TLevelGaugeMonitoring::errorOccurredHTTP(const QString& msg)
     sendLogMsg(MSG_CODE::CODE_ERROR, "Error sending data to HTTP server. Msg: " + msg);
 }
 
-QString TLevelGaugeMonitoring::timeFromStart() const
-{
-    return QString("%1ms").arg(_timer.secsTo(QTime::currentTime()));
-}
-
 void TLevelGaugeMonitoring::getAnswerHTTP(const QByteArray &answer)
 {
-    if (_cnf->sys_DebugMode()) {
-        qDebug() << "Get a response from the server" << timeFromStart();
-        qDebug() << "->Answer: " << answer;
-    }
-
     _sending = false;
 
     if (answer.left(2) == "OK") {
