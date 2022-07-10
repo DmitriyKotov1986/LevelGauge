@@ -375,6 +375,7 @@ void TLS4::sendCmd(const QByteArray &cmd)
             QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
             QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
             QObject::connect(_socket, SIGNAL(errorOccurred(QAbstractSocket::SocketError)), SLOT(errorOccurredSocket(QAbstractSocket::SocketError)));
+            QObject::connect(_socket, SIGNAL(disconnected()), SLOT(disconnentedSocket()));
             //подлючаемся к уровнемеру
             _socket->connectToHost(_cnf->lg_Host(), _cnf->lg_Port(), QIODeviceBase::ReadWrite, QAbstractSocket::IPv4Protocol);
             //далее ждем conneted() или errorOccurred()
@@ -391,7 +392,9 @@ void TLS4::sendNextCmd()
 
     //все команды отправлены, или произошла ошибка - выходим
     if (cmdQueue.isEmpty() || (!_socket->isOpen())) {
-        transferReset();
+        _socket->disconnectFromHost();
+        //далее ждем сигнал disconnect()
+        //отключение происходит в обработчике сигнала QTcpSocket::disconnect()  - disconnentedSocket()
     }
     else {
         //очищаем буфер
@@ -450,4 +453,9 @@ void TLS4::readyReadSocket()
             sendNextCmd();
         }
     }
+}
+
+void TLS4::disconnentedSocket()
+{
+    transferReset();
 }

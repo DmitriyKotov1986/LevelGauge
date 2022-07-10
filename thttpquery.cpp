@@ -54,7 +54,7 @@ void THTTPQuery::replyFinished(QNetworkReply *resp)
     if (resp->error() == QNetworkReply::NoError) {
         QByteArray answer = resp->readAll();
 
-        writeDebugLogFile("HTTP request:", QString(answer));
+        writeDebugLogFile("HTTP answer:", QString(answer));
 
         emit getAnswer(answer);
     }

@@ -29,6 +29,7 @@ public slots:
 private slots:
     void connentedSocket();
     void readyReadSocket();
+    void disconnentedSocket();
     void errorOccurredSocket(QAbstractSocket::SocketError);
     void getData();
 

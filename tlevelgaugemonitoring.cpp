@@ -11,6 +11,7 @@
 //My
 #include "tls2.h"
 #include "tls4.h"
+#include "sens.h"
 #include "common.h"
 
 using namespace LevelGauge;
@@ -131,6 +132,7 @@ TLevelGauge *TLevelGaugeMonitoring::loadLG()
     switch (_cnf->lg_TLS()) {
     case 2: return new TLS2(_cnf);
     case 4: return new TLS4(_cnf);
+    case 100: return new Sens(_cnf);
     default: {
         QString msg = "Undefine type of level gauge. Check blok [LEVELGAUGE]/'TLS' in config file";
         saveLogToFile(msg);
@@ -147,6 +149,8 @@ void TLevelGaugeMonitoring::sendLogMsg(uint16_t category, const QString& msg)
     if (_cnf->sys_DebugMode()) {
         qDebug() << QTime::currentTime().toString("hh:mm:ss") << msg;
     }
+
+    writeDebugLogFile("LOG>", msg);
 
     QString queryText = "INSERT INTO LOG (CATEGORY, SENDER, MSG) VALUES ( "
                         + QString::number(category) + ", "
