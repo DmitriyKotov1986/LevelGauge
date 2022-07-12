@@ -7,7 +7,7 @@
 
 using namespace LevelGauge;
 
-TLS4::TLS4(TConfig* cnf, QObject* parent) :
+TLS4::TLS4(LevelGauge::TConfig* cnf, QObject* parent) :
     TLevelGauge(parent),
     _cnf(cnf)
 {

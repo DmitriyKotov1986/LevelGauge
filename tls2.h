@@ -20,7 +20,7 @@ class TLS2 final : public TLevelGauge
     Q_OBJECT
 
 public:
-    explicit TLS2(TConfig* cnf, QObject *parent = nullptr);
+    explicit TLS2(LevelGauge::TConfig* cnf, QObject *parent = nullptr);
     ~TLS2();
 
 public slots:

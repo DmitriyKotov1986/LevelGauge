@@ -44,9 +44,9 @@ TConfig::TConfig(const QString& configFileName) :
     _srv_Password = ini.value("PWD", "").toString();
     _srv_Host = ini.value("Host", "localhost").toString();
     _srv_Port = ini.value("Port", "").toUInt();
-    _srv_LastTankMeasumentID = ini.value("LastTankMeasumentID", "0").toUInt();
-    _srv_LastTankConfigID = ini.value("LastTankConfigID", "0").toUInt();
-    _srv_MaxRecord = ini.value("MaxRecord", "10").toUInt();
+    _srv_LastTankMeasumentID = ini.value("LastTankMeasumentID", 0).toUInt();
+    _srv_LastTankConfigID = ini.value("LastTankConfigID", 0).toUInt();
+    _srv_MaxRecord = ini.value("MaxRecord", "100").toUInt();
     ini.endGroup();
 
     ini.beginGroup("LEVELGAUGE");

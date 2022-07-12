@@ -32,6 +32,7 @@ void THTTPQuery::send(const QByteArray& data)
 {
     //создаем и отправляем запрос
     QNetworkRequest request(_url);
+    request.setAttribute(QNetworkRequest::HttpPipeliningAllowedAttribute, false);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
     request.setHeader(QNetworkRequest::UserAgentHeader, QCoreApplication::applicationName());
     request.setHeader(QNetworkRequest::ContentLengthHeader, QString::number(data.size()));

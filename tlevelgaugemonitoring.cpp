@@ -127,12 +127,12 @@ void TLevelGaugeMonitoring::start()
     sendLogMsg(MSG_CODE::CODE_OK, "Successfully started");
 }
 
-TLevelGauge *TLevelGaugeMonitoring::loadLG()
+TLevelGauge* TLevelGaugeMonitoring::loadLG()
 {
     switch (_cnf->lg_TLS()) {
-    case 2: return new TLS2(_cnf);
-    case 4: return new TLS4(_cnf);
-    case 100: return new Sens(_cnf);
+    case 2: return new LevelGauge::TLS2(_cnf);
+    case 4: return new LevelGauge::TLS4(_cnf);
+    case 100: return new LevelGauge::Sens(_cnf);
     default: {
         QString msg = "Undefine type of level gauge. Check blok [LEVELGAUGE]/'TLS' in config file";
         saveLogToFile(msg);

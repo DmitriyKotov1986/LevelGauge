@@ -20,7 +20,7 @@ class TLS4 final : public TLevelGauge
     Q_OBJECT
 
 public:
-    explicit TLS4(TConfig* cnf, QObject *parent = nullptr);
+    explicit TLS4(LevelGauge::TConfig* cnf, QObject *parent = nullptr);
     ~TLS4();
 
 public slots:
