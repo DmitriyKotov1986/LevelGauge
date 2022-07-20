@@ -16,13 +16,17 @@ TLS4::TLS4(LevelGauge::TConfig* cnf, QObject* parent) :
 
 TLS4::~TLS4()
 {
-    Q_ASSERT(_socket != nullptr);
+    Q_ASSERT(_watchDoc != nullptr);
 
     if (_socket != nullptr) {
         if (_socket->isOpen()) {
            _socket->disconnectFromHost();
         }
         _socket->deleteLater();
+    }
+
+    if (_watchDoc != nullptr) {
+        _watchDoc->deleteLater();
     }
 
     if (_getDataTimer != nullptr) {
@@ -35,10 +39,13 @@ void TLS4::start()
     Q_ASSERT(_socket == nullptr);
 
     _getDataTimer = new QTimer();
-
     QObject::connect(_getDataTimer, SIGNAL(timeout()), SLOT(getData()));
-
     _getDataTimer->start(_cnf->sys_Interval());
+
+    //WatchDoc
+    _watchDoc = new QTimer();
+    QObject::connect(_watchDoc, SIGNAL(timeout()), SLOT(watchDocTimeout()));
+    _watchDoc->setSingleShot(true);
 
     getData();
 }
@@ -379,6 +386,8 @@ void TLS4::sendCmd(const QByteArray &cmd)
             //подлючаемся к уровнемеру
             _socket->connectToHost(_cnf->lg_Host(), _cnf->lg_Port(), QIODeviceBase::ReadWrite, QAbstractSocket::IPv4Protocol);
             //далее ждем conneted() или errorOccurred()
+            //запускаем watchDoc
+            _watchDoc->start(45000);
         }
     }
     else {
@@ -406,16 +415,37 @@ void TLS4::sendNextCmd()
     }
 }
 
-void TLS4::transferReset()
+void TLS4::watchDocTimeout()
 {
     Q_ASSERT(_socket != nullptr);
 
-    if (_socket->isOpen()) {
+    emit errorOccurred("Connection timeout.");
+
+    if (_socket != nullptr) {
         _socket->disconnectFromHost();
     }
+}
 
-    _socket->deleteLater();
-    _socket = nullptr;
+void TLS4::transferReset()
+{
+    Q_ASSERT(_socket != nullptr);
+    Q_ASSERT(_watchDoc != nullptr);
+
+    //тормозим watchDoc
+    if (_watchDoc->isActive()) {
+        _watchDoc->stop();
+    }
+
+    if (_socket != nullptr) {
+        //закрываем соединение
+        if (_socket->isOpen()) {
+            _socket->disconnectFromHost();
+           //тут может второй раз прилететь событие disconnect()
+        }
+
+        _socket->deleteLater();
+        _socket = nullptr;
+    }
 
     readBuffer.clear();
 }

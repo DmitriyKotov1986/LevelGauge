@@ -40,7 +40,8 @@ public:
     //[LEVELGAUGE]
     const QString& lg_Host() const { return _lg_Host; }
     quint16 lg_Port() const { return _lg_Port; }
-    quint16 lg_TLS() const {return _lg_TLS; }
+    quint16 lg_TLS() const { return _lg_TLS; }
+    QList<uint8_t> lg_Addresses() const { return _lg_Address; }
 
     //[SYSTEM]
     int sys_Interval() const { return _sys_Interval; }
@@ -79,6 +80,7 @@ private:
     QString _lg_Host;
     quint16 _lg_Port = 0;
     quint16 _lg_TLS = 2;
+    QList<uint8_t> _lg_Address;
 
     //[SYSTEM]
     int _sys_Interval = 60 * 1000;

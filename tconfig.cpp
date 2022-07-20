@@ -53,6 +53,19 @@ TConfig::TConfig(const QString& configFileName) :
     _lg_Host = ini.value("HOST", "localhost").toString();
     _lg_Port = ini.value("Port", "10001").toUInt();
     _lg_TLS = ini.value("TLS", 2).toUInt();
+
+    if (_lg_TLS == 100) {
+        QStringList lgAddressList(ini.value("Addresses", "").toStringList());
+        for (const auto& addressItem: lgAddressList) {
+            bool ok;
+            _lg_Address.push_back(addressItem.toUInt(&ok, 16));
+            if (!ok) {
+                _isError = true;
+                _errorString = "[LEVELGAUGE]/Addresses: " + addressItem + " is not number.";
+                return;
+            }
+        }
+    }
     ini.endGroup();
 }
 

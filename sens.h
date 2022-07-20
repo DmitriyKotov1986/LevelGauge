@@ -9,7 +9,6 @@
 #include <QTextStream>
 #include <QByteArray>
 #include <QQueue>
-#include <QModbusTcpClient>
 //My
 #include "tlevelgauge.h"
 #include "tconfig.h"
@@ -28,15 +27,41 @@ public slots:
     void start() override;
 
 private slots:
+    void connentedSocket();
+    void disconnentedSocket();
+    void readyReadSocket();
+    void errorOccurredSocket(QAbstractSocket::SocketError);
     void getData();
+    void watchDocTimeout();
+
+private:
+    void sendCmd(const QByteArray &cmd);
+    void sendNextCmd();
+    void transferReset();
+
+    void upDataTanksConfigs(); //отправляет набор команд ля получения конфигурации резервуаров
+    void upDataTanksMeasuments(); //отправляет набор команд для получение результатов измерений
+
+    unsigned char CRC(const QByteArray& cmd);
+    float float24ToFloat32(const QByteArray& number);
+
+    void parseAnswer(QByteArray data);
+    TLevelGauge::TTankMeasument parseTankMeasument(QDataStream& dataStream);
+    TLevelGauge::TTankConfig parseTankConfig(QDataStream& dataStream);
 
 private:
     TConfig* _cnf = nullptr;
+    QTcpSocket* _socket = nullptr;
     QTimer* _getDataTimer = nullptr;
-    QModbusTcpClient* _modbusTTcpClient = nullptr;
+    QTimer* _watchDoc = nullptr;
 
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
+
+    QByteArray readBuffer; //буфер получения данныъ
+    QQueue<QByteArray> cmdQueue; //очередь команд
+
+    int tick = 0; //номер такта
 };
 
 } //namespace LevelGauge

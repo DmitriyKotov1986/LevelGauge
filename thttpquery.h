@@ -5,6 +5,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QString>
+#include <QTimer>
+#include <QHash>
 
 namespace LevelGauge {
 
@@ -22,8 +24,10 @@ public:
         return _HTTPQuery;
     }
 
-public:
+private:
     explicit THTTPQuery(const QString& url, QObject* parent = nullptr);
+
+public:
     ~THTTPQuery();
 
 public slots:
@@ -35,10 +39,15 @@ signals:
 
 private slots:
     void replyFinished(QNetworkReply* resp); //конец приема ответа
+    void watchDocTimeout();
 
 private:
+    //service
     QNetworkAccessManager* _manager = nullptr; //менеджер обработки соединений
+    QHash<QNetworkReply*, QTimer*> _watchDocs;
+    //Data
     const QString _url; //адресс на который отправляется запрос
+
 };
 
 } //namespace LevelGauge

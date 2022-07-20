@@ -16,13 +16,17 @@ TLS2::TLS2(LevelGauge::TConfig* cnf, QObject* parent) :
 
 TLS2::~TLS2()
 {
-    Q_ASSERT(_socket != nullptr);
+    Q_ASSERT(_watchDoc != nullptr);
 
     if (_socket != nullptr) {
         if (_socket->isOpen()) {
            _socket->disconnectFromHost();
         }
         _socket->deleteLater();
+    }
+
+    if (_watchDoc != nullptr) {
+        _watchDoc->deleteLater();
     }
 
     if (_getDataTimer != nullptr) {
@@ -33,12 +37,16 @@ TLS2::~TLS2()
 void TLS2::start()
 {
     Q_ASSERT(_socket == nullptr);
+    Q_ASSERT(_watchDoc == nullptr);
 
     _getDataTimer = new QTimer();
-
     QObject::connect(_getDataTimer, SIGNAL(timeout()), SLOT(getData()));
-
     _getDataTimer->start(_cnf->sys_Interval());
+
+    //WatchDoc
+    _watchDoc = new QTimer();
+    QObject::connect(_watchDoc, SIGNAL(timeout()), SLOT(watchDocTimeout()));
+    _watchDoc->setSingleShot(true);
 
     getData();
 }
@@ -378,6 +386,8 @@ void TLS2::sendCmd(const QByteArray &cmd)
             //подлючаемся к уровнемеру
             _socket->connectToHost(_cnf->lg_Host(), _cnf->lg_Port(), QIODeviceBase::ReadWrite, QAbstractSocket::IPv4Protocol);
             //далее ждем conneted() или errorOccurred()
+            //запускаем watchDoc
+            _watchDoc->start(45000);
         }
     }
     else {
@@ -408,13 +418,23 @@ void TLS2::sendNextCmd()
 void TLS2::transferReset()
 {
     Q_ASSERT(_socket != nullptr);
+    Q_ASSERT(_watchDoc != nullptr);
 
-    if (_socket->isOpen()) {
-        _socket->disconnectFromHost();
+    //тормозим watchDoc
+    if (_watchDoc->isActive()) {
+        _watchDoc->stop();
     }
 
-    _socket->deleteLater();
-    _socket = nullptr;
+    if (_socket != nullptr) {
+        //закрываем соединение
+        if (_socket->isOpen()) {
+            _socket->disconnectFromHost();
+           //тут может второй раз прилететь событие disconnect()
+        }
+
+        _socket->deleteLater();
+        _socket = nullptr;
+    }
 
     readBuffer.clear();
 }
@@ -431,9 +451,20 @@ void TLS2::getData()
     ++tick;
 }
 
+void TLS2::watchDocTimeout()
+{
+    Q_ASSERT(_socket != nullptr);
+
+    emit errorOccurred("Connection timeout.");
+
+    if (_socket != nullptr) {
+        _socket->disconnectFromHost();
+    }
+}
+
 void TLS2::errorOccurredSocket(QAbstractSocket::SocketError)
 {
-    emit errorOccurred(QString("Socket error.Code: %1. Msg: %2").arg(_socket->error()).arg(_socket->errorString()));
+    emit errorOccurred(QString("Socket error. Code: %1. Msg: %2").arg(_socket->error()).arg(_socket->errorString()));
     transferReset();
 }
 

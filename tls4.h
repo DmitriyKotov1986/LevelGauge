@@ -32,6 +32,7 @@ private slots:
     void disconnentedSocket();
     void errorOccurredSocket(QAbstractSocket::SocketError);
     void getData();
+    void watchDocTimeout();
 
 private:
     void parseAnswer(QByteArray& data);
@@ -56,6 +57,7 @@ private:
     TConfig* _cnf = nullptr;
     QTcpSocket* _socket = nullptr;
     QTimer* _getDataTimer = nullptr;
+    QTimer* _watchDoc = nullptr;
 
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений

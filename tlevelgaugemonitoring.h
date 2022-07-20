@@ -9,7 +9,6 @@
 #include <QTime>
 #include <QStringList>
 //My
-#include "tconsole.h"
 #include "tlevelgauge.h"
 #include "thttpquery.h"
 #include "tconfig.h"
