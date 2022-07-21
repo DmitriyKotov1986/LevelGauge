@@ -12,6 +12,7 @@
 #include "tls2.h"
 #include "tls4.h"
 #include "sens.h"
+#include "senspassive.h"
 #include "common.h"
 
 using namespace LevelGauge;
@@ -133,6 +134,7 @@ TLevelGauge* TLevelGaugeMonitoring::loadLG()
     case 2: return new LevelGauge::TLS2(_cnf);
     case 4: return new LevelGauge::TLS4(_cnf);
     case 100: return new LevelGauge::Sens(_cnf);
+    case 101: return new LevelGauge::SensPassive(_cnf);
     default: {
         QString msg = "Undefine type of level gauge. Check blok [LEVELGAUGE]/'TLS' in config file";
         saveLogToFile(msg);

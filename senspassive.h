@@ -1,6 +1,5 @@
-//реализует активный режим протокола СЕНС
-#ifndef SENS_H
-#define SENS_H
+#ifndef SENSPASSIVE_H
+#define SENSPASSIVE_H
 
 //Qt
 #include <QObject>
@@ -16,13 +15,13 @@
 
 namespace LevelGauge {
 
-class Sens final : public TLevelGauge
+class SensPassive final : public TLevelGauge
 {
     Q_OBJECT
 
 public:
-    explicit Sens(LevelGauge::TConfig* cnf, QObject *parent = nullptr);
-    ~Sens();
+    explicit SensPassive(LevelGauge::TConfig* cnf, QObject *parent = nullptr);
+    ~SensPassive();
 
 public slots:
     void start() override;
@@ -36,12 +35,7 @@ private slots:
     void watchDocTimeout();
 
 private:
-    void sendCmd(const QByteArray &cmd);
-    void sendNextCmd();
     void transferReset();
-
-    void upDataTanksConfigs(); //отправляет набор команд для получения конфигурации резервуаров
-    void upDataTanksMeasuments(); //отправляет набор команд для получение результатов измерений
 
     unsigned char CRC(const QByteArray& cmd);
     float float24ToFloat32(const QByteArray& number);
@@ -58,13 +52,8 @@ private:
 
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
-
-    QByteArray readBuffer; //буфер получения данныъ
-    QQueue<QByteArray> cmdQueue; //очередь команд
-
-    int tick = 0; //номер такта
 };
 
 } //namespace LevelGauge
 
-#endif // SENS_H
+#endif // SENSPASSIVE_H

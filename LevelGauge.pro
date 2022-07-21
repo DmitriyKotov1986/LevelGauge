@@ -2,7 +2,6 @@ QT -= gui
 
 QT += network
 QT += sql
-QT += serialbus
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
@@ -15,6 +14,7 @@ SOURCES += \
         common.cpp \
         main.cpp \
         sens.cpp \
+        senspassive.cpp \
         tconfig.cpp \
         thttpquery.cpp \
         tlevelgaugemonitoring.cpp \
@@ -29,6 +29,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     common.h \
     sens.h \
+    senspassive.h \
     tconfig.h \
     thttpquery.h \
     tlevelgauge.h \
