@@ -191,8 +191,6 @@ void SensPassive::parseAnswer(QByteArray data)
     //если дошли до сюда - значит принят пакет с информацией об уровне или конфигурации резервуара
     //начинаем парсинг
 
-    LevelGauge::writeDebugLogFile("Packet is define. Start parsing.:", QString());
-
     //удаляем первый (0xB5)
     data.remove(0,1);
     //парсим пришедшие данные
@@ -200,9 +198,8 @@ void SensPassive::parseAnswer(QByteArray data)
     //первый байт - адрес устройства
     uint8_t number = 0;
     dataStream >> number;
-    if ((number < 1) || (number > 6)) {
-        emit errorOccurred("parseTanksMeasument: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
-        return;
+    if (!_cnf->lg_Addresses().contains(number)) {
+      //  return;
     }
 
     uint8_t length = 0;
@@ -295,6 +292,9 @@ TLevelGauge::TTankMeasument SensPassive::parseTankMeasument(QDataStream &dataStr
         case 0x07: { tmp.volume = value * 1000.0; break; }
         //масса м
         case 0x08: { tmp.water = value * 1000.0; break; }
+        case 0x2C:
+        case 0x2D:
+        case 0x26: { break; }
         default : {
             emit errorOccurred("parseTankMeasument: incorrect parametr address: " + QString::number(code, 16));
         }

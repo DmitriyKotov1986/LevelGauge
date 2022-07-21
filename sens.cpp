@@ -279,7 +279,7 @@ void Sens::parseAnswer(QByteArray data)
     //первый байт - адрес устройства
     uint8_t number = 0;
     dataStream >> number;
-    if ((number < 1) || (number > 6)) {
+    if (!_cnf->lg_Addresses().contains(number)) {
         emit errorOccurred("parseTanksMeasument: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
         return;
     }
