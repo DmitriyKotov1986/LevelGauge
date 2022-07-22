@@ -34,6 +34,7 @@ private slots:
     void errorOccurredSocket(QAbstractSocket::SocketError);
     void getData();
     void watchDocTimeout();
+    void sendData(); //отправляет сигналы с готовыми данными
 
 private:
     void sendCmd(const QByteArray &cmd);
@@ -55,12 +56,13 @@ private:
     QTcpSocket* _socket = nullptr;
     QTimer* _getDataTimer = nullptr;
     QTimer* _watchDoc = nullptr;
+    QTimer* _sendDataTimer = nullptr;
 
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
-    QByteArray readBuffer; //буфер получения данныъ
-    QQueue<QByteArray> cmdQueue; //очередь команд
+    QByteArray _readBuffer; //буфер получения данныъ
+    QQueue<QByteArray> _cmdQueue; //очередь команд
 
     int tick = 0; //номер такта
 };

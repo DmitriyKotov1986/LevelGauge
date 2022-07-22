@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "tconfig.h"
 #include "tlevelgaugemonitoring.h"
+#include "common.h"
 
 using namespace LevelGauge;
 
@@ -39,8 +40,8 @@ int main(int argc, char *argv[])
     //Читаем конигурацию
     TConfig* cnf = TConfig::config(configFileName);
     if (cnf->isError()) {
-        qCritical() << "Error load configuration: " + cnf->errorString();
-        exit(-1);
+        qCritical() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg("Error load configuration: " + cnf->errorString());
+        exit(EXIT_CODE::LOAD_CONFIG_ERR); // -1
     }
 
     //настраиваем таймер

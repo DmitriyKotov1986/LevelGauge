@@ -32,6 +32,10 @@ Sens::~Sens()
     if (_getDataTimer != nullptr) {
         _getDataTimer->deleteLater();
     }
+
+    if (_sendDataTimer != nullptr) {
+        _sendDataTimer->deleteLater();
+    }
 }
 
 void Sens::start()
@@ -47,6 +51,11 @@ void Sens::start()
     _watchDoc = new QTimer();
     QObject::connect(_watchDoc, SIGNAL(timeout()), SLOT(watchDocTimeout()));
     _watchDoc->setSingleShot(true);
+
+    //send data timer
+    _sendDataTimer = new QTimer();
+    QObject::connect(_sendDataTimer, SIGNAL(timeout()), SLOT(sendData()));
+    _sendDataTimer->start(60000);
 
     getData();
 }
@@ -67,8 +76,8 @@ void Sens::readyReadSocket()
     //"\xB5\x01\x04\x8F\x03\xB6\xE1" - error message
 
     //считываем буфер
-    readBuffer += _socket->readAll();
-    parseAnswer(readBuffer);
+    _readBuffer += _socket->readAll();
+    parseAnswer(_readBuffer);
 
     sendNextCmd();
 }
@@ -102,6 +111,19 @@ void Sens::watchDocTimeout()
     }
 }
 
+void Sens::sendData()
+{
+    if (!_tanksMeasuments.isEmpty()) {
+        emit getTanksMeasument(_tanksMeasuments);
+        _tanksMeasuments.clear();
+    }
+
+    if (!_tanksConfigs.isEmpty()) {
+        emit getTanksConfig(_tanksConfigs);
+        _tanksConfigs.clear();
+    }
+}
+
 void Sens::sendCmd(const QByteArray &cmd)
 {
     //если _socket еще не определен - значит передача данных еще не идет
@@ -110,7 +132,7 @@ void Sens::sendCmd(const QByteArray &cmd)
     }
     //если пришла пустая команда - запускаем отрпавку данных
     if (cmd.isEmpty()) {
-        if (!cmdQueue.isEmpty()) {
+        if (!_cmdQueue.isEmpty()) {
             _socket = new QTcpSocket;
             QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
             QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
@@ -124,7 +146,7 @@ void Sens::sendCmd(const QByteArray &cmd)
         }
     }
     else {
-        cmdQueue.enqueue(cmd);
+        _cmdQueue.enqueue(cmd);
     }
 }
 
@@ -133,15 +155,15 @@ void Sens::sendNextCmd()
     Q_ASSERT(_socket != nullptr);
 
     //все команды отправлены, или произошла ошибка - выходим
-    if (cmdQueue.isEmpty() || (!_socket->isOpen())) {
+    if (_cmdQueue.isEmpty() || (!_socket->isOpen())) {
         _socket->disconnectFromHost();
         //далее ждем сигнал disconnect()
         //отключение происходит в обработчике сигнала QTcpSocket::disconnect()  - disconnentedSocket()
     }
     else {
         //очищаем буфер
-        readBuffer.clear();
-        QByteArray cmd = cmdQueue.dequeue();
+        _readBuffer.clear();
+        QByteArray cmd = _cmdQueue.dequeue();
 
         //qDebug() << "Send>>" << cmd.toHex('|');
         _socket->write(cmd);
@@ -171,7 +193,7 @@ void Sens::transferReset()
         _socket = nullptr;
     }
 
-    readBuffer.clear();
+    _readBuffer.clear();
 }
 
 void Sens::upDataTanksConfigs()
@@ -235,7 +257,7 @@ void Sens::parseAnswer(QByteArray data)
 {
     //qDebug() << "Answer>>" << data.toHex('|');
 
-    LevelGauge::writeDebugLogFile("LG answer:", QString(data.toHex('|')));
+    writeDebugLogFile("LG answer:", QString(data.toHex('|')));
 
     //проверяем длину
     if (data.length() < 10) {
@@ -317,9 +339,6 @@ void Sens::parseAnswer(QByteArray data)
         tmp.dateTime = QDateTime::currentDateTime();
 
         _tanksMeasuments.emplace(number, tmp);
-
-        emit getTanksMeasument(_tanksMeasuments);
-        _tanksMeasuments.clear();
     }
     else if (dataType == 0x20) {
         TLevelGauge::TTankConfig tmp = parseTankConfig(dataStream);
@@ -335,9 +354,6 @@ void Sens::parseAnswer(QByteArray data)
         tmp.dateTime = QDateTime::currentDateTime();
 
         _tanksConfigs.emplace(number, tmp);
-
-        emit getTanksConfig(_tanksConfigs);
-        _tanksConfigs.clear();
     }
 }
 

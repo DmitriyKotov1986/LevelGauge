@@ -6,8 +6,6 @@
 
 namespace LevelGauge {
 
-static const QString LOG_FILE_NAME = "/Log/LevelGauge.log"; //имя файла лога
-
 class TConfig
 {
 public:

@@ -295,7 +295,7 @@ void TLS2::parseTanksOffset(const QByteArray &data)
 
 void TLS2::parseAnswer(QByteArray &data)
 {
-    LevelGauge::writeDebugLogFile("LG answer:", QString(data));
+    writeDebugLogFile("LG answer:", QString(data));
 
     if (data.length() < 3) {
         emit errorOccurred("Data packet is too short");
@@ -377,7 +377,7 @@ void TLS2::sendCmd(const QByteArray &cmd)
     }
     //если пришла пустая команда - запускаем отрпавку данных
     if (cmd.isEmpty()) {
-        if (!cmdQueue.isEmpty()) {
+        if (!_cmdQueue.isEmpty()) {
             _socket = new QTcpSocket;
             QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
             QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
@@ -391,7 +391,7 @@ void TLS2::sendCmd(const QByteArray &cmd)
         }
     }
     else {
-        cmdQueue.enqueue(char(1) + cmd + char(3));
+        _cmdQueue.enqueue(char(1) + cmd + char(3));
     }
 }
 
@@ -400,15 +400,15 @@ void TLS2::sendNextCmd()
     Q_ASSERT(_socket != nullptr);
 
     //все команды отправлены, или произошла ошибка - выходим
-    if (cmdQueue.isEmpty() || (!_socket->isOpen())) {
+    if (_cmdQueue.isEmpty() || (!_socket->isOpen())) {
         _socket->disconnectFromHost();
         //далее ждем сигнал disconnect()
         //отключение происходит в обработчике сигнала QTcpSocket::disconnect()  - disconnentedSocket()
     }
     else {
         //очищаем буфер
-        readBuffer.clear();
-        QByteArray cmd = cmdQueue.dequeue();
+        _readBuffer.clear();
+        QByteArray cmd = _cmdQueue.dequeue();
         _socket->write(cmd);
 
         writeDebugLogFile("LG request:", QString(cmd));
@@ -436,7 +436,7 @@ void TLS2::transferReset()
         _socket = nullptr;
     }
 
-    readBuffer.clear();
+    _readBuffer.clear();
 }
 
 void TLS2::getData()
@@ -471,14 +471,14 @@ void TLS2::errorOccurredSocket(QAbstractSocket::SocketError)
 void TLS2::readyReadSocket()
 {
     //считываем буфер
-    readBuffer += _socket->readAll();
+    _readBuffer += _socket->readAll();
 
-    if (readBuffer.size() > 0) {
-        qsizetype posEXT = readBuffer.indexOf(char(3)); //пришел символ 3 - конец пакета
+    if (_readBuffer.size() > 0) {
+        qsizetype posEXT = _readBuffer.indexOf(char(3)); //пришел символ 3 - конец пакета
         if (posEXT != -1) {
-            readBuffer.remove(posEXT, 1); //удаляем <EXT> в конце
-            readBuffer.remove(0, 1); //Удаляем <SOH>  в начале
-            parseAnswer(readBuffer);
+            _readBuffer.remove(posEXT, 1); //удаляем <EXT> в конце
+            _readBuffer.remove(0, 1); //Удаляем <SOH>  в начале
+            parseAnswer(_readBuffer);
             //отправляем слудующую
             sendNextCmd();
         }

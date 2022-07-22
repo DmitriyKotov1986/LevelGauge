@@ -112,11 +112,13 @@ void TLevelGaugeMonitoring::start()
 
     //подключаемся к БД
     if (!_db.open()) {
-        QString msg = QString("%1 Cannot connect to database. Error: %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(_db.lastError().text());
-        qCritical() <<  msg;
+        QString msg = QString("Cannot connect to database. Error: %1").arg(_db.lastError().text());
+        qCritical() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
         saveLogToFile(msg);
 
         emit finished();
+
+        return;
     };
 
     //запускаем опрос уровнемеров
@@ -139,7 +141,7 @@ TLevelGauge* TLevelGaugeMonitoring::loadLG()
         QString msg = "Undefine type of level gauge. Check blok [LEVELGAUGE]/'TLS' in config file";
         saveLogToFile(msg);
         //тут еще цикл обработки событий не запущен - поэтому просто выходим
-        exit(-2);
+        exit(EXIT_CODE::LEVELGAUGE_UNDEFINE_TYPE);
     }
     }
     return nullptr;
@@ -149,7 +151,7 @@ TLevelGauge* TLevelGaugeMonitoring::loadLG()
 void TLevelGaugeMonitoring::sendLogMsg(uint16_t category, const QString& msg)
 {
     if (_cnf->sys_DebugMode()) {
-        qDebug() << QTime::currentTime().toString("hh:mm:ss") << msg;
+        qDebug() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
     }
 
     writeDebugLogFile("LOG>", msg);
@@ -165,7 +167,7 @@ void TLevelGaugeMonitoring::sendLogMsg(uint16_t category, const QString& msg)
 
 void TLevelGaugeMonitoring::saveLogToFile(const QString& msg)
 {
-    writeLogFile("Log:", msg);
+    writeLogFile("LOG>", msg);
 }
 
 void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasuments& tanksMeasument)
@@ -229,6 +231,13 @@ void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfigs
 
 void TLevelGaugeMonitoring::DBQueryExecute(const QString &queryText)
 {
+   if (!_db.isOpen()) {
+       QString msg = QString("Cannot query to DB execute because connetion is closed. Query: %1").arg(queryText);
+       saveLogToFile(msg);
+       qCritical() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+       return;
+   }
+
     QSqlQuery query(_db);
     _db.transaction();
 
@@ -242,8 +251,8 @@ void TLevelGaugeMonitoring::DBQueryExecute(const QString &queryText)
 void TLevelGaugeMonitoring::DBCommit()
 {
   if (!_db.commit()) {
-    QString msg = QString("%1 FAIL Cannot commit transation. Error: %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(_db.lastError().text());
-    qCritical() << msg;
+    QString msg = QString("Cannot commit trancsation. Error: %1").arg(_db.lastError().text());
+    qCritical() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
     saveLogToFile(msg);
 
     _db.rollback();
@@ -254,9 +263,8 @@ void TLevelGaugeMonitoring::DBCommit()
 
 void TLevelGaugeMonitoring::errorDBQuery(const QSqlQuery& query)
 {
-    QString msg = QString("%1 FAIL Cannot execute query. Error: %2 Query: %3").arg(QTime::currentTime().toString("hh:mm:ss")).
-        arg(query.lastError().text()).arg(query.lastQuery());
-    qCritical() << "FAIL Cannot execute query. Error:" << query.lastError().text() << " Query:"<< query.lastQuery();
+    QString msg = QString("Cannot execute query. Error: %1").arg(query.lastError().text());
+    qCritical() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
     saveLogToFile(msg);
 
     _db.rollback();

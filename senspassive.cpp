@@ -30,12 +30,18 @@ SensPassive::~SensPassive()
     if (_getDataTimer != nullptr) {
         _getDataTimer->deleteLater();
     }
+
+    if (_sendDataTimer != nullptr) {
+        _sendDataTimer->deleteLater();
+    }
 }
 
 void SensPassive::start()
 {
     Q_ASSERT(_socket == nullptr);
+    Q_ASSERT(_sendDataTimer == nullptr);
 
+    //getData
     _getDataTimer = new QTimer();
     QObject::connect(_getDataTimer, SIGNAL(timeout()), SLOT(getData()));
     _getDataTimer->start(_cnf->sys_Interval() * 10);
@@ -44,6 +50,11 @@ void SensPassive::start()
     _watchDoc = new QTimer();
     QObject::connect(_watchDoc, SIGNAL(timeout()), SLOT(watchDocTimeout()));
     _watchDoc->setSingleShot(true);
+
+    //send data timer
+    _sendDataTimer = new QTimer();
+    QObject::connect(_sendDataTimer, SIGNAL(timeout()), SLOT(sendData()));
+    _sendDataTimer->start(60000);
 
     getData();
 }
@@ -103,6 +114,19 @@ void SensPassive::watchDocTimeout()
     }
 }
 
+void SensPassive::sendData()
+{
+    if (!_tanksMeasuments.isEmpty()) {
+        emit getTanksMeasument(_tanksMeasuments);
+        _tanksMeasuments.clear();
+    }
+
+    if (!_tanksConfigs.isEmpty()) {
+        emit getTanksConfig(_tanksConfigs);
+        _tanksConfigs.clear();
+    }
+}
+
 void SensPassive::transferReset()
 {
     Q_ASSERT(_socket != nullptr);
@@ -123,7 +147,6 @@ void SensPassive::transferReset()
         _socket->deleteLater();
         _socket = nullptr;
     }
-
 }
 
 unsigned char SensPassive::CRC(const QByteArray &cmd)
@@ -156,7 +179,7 @@ float SensPassive::float24ToFloat32(const QByteArray &number)
 void SensPassive::parseAnswer(QByteArray data)
 {
     //проверяем пакет и выходим если он нам не подходит
-    LevelGauge::writeDebugLogFile("Get from LG:", QString(data.toHex('|')));
+    writeDebugLogFile("Get from LG:", QString(data.toHex('|')));
 
     //проверяем длину
     if (data.length() < 10) {
@@ -191,7 +214,7 @@ void SensPassive::parseAnswer(QByteArray data)
     //если дошли до сюда - значит принят пакет с информацией об уровне или конфигурации резервуара
     //начинаем парсинг
 
-    LevelGauge::writeDebugLogFile("Packet is define. Start parsing.:", QString());
+    writeDebugLogFile("Packet is define. Start parsing.:", QString());
 
     //удаляем первый (0xB5)
     data.remove(0,1);
@@ -213,6 +236,9 @@ void SensPassive::parseAnswer(QByteArray data)
 
     //далее идут данные. их читаем по 4 бата. первый байт - номер параметра, потом 3 байта - данные
     if (dataType == 0x01) {
+        if (_lastGetMeausumentsData.contains(number) && (_lastGetMeausumentsData[number].secsTo(QTime::currentTime()) < 60000)) {
+                return;
+        }
         TLevelGauge::TTankMeasument tmp = parseTankMeasument(dataStream);
         //проверям полученные значения
         if ((tmp.volume < 10) || (tmp.volume > 10000000)) {
@@ -237,12 +263,13 @@ void SensPassive::parseAnswer(QByteArray data)
         }
         tmp.dateTime = QDateTime::currentDateTime();
 
-        _tanksMeasuments.emplace(number, tmp);
-
-        emit getTanksMeasument(_tanksMeasuments);
-        _tanksMeasuments.clear();
+        _tanksMeasuments.emplace(number, tmp);        
+        _lastGetMeausumentsData[number] = QTime::currentTime();
     }
     else if (dataType == 0x20) {
+        if (_lastGetConfigsData.contains(number) && (_lastGetConfigsData[number].secsTo(QTime::currentTime()) < 60000)) {
+                return;
+        }
         TLevelGauge::TTankConfig tmp = parseTankConfig(dataStream);
         //проверям полученные значения
         if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)){
@@ -256,9 +283,7 @@ void SensPassive::parseAnswer(QByteArray data)
         tmp.dateTime = QDateTime::currentDateTime();
 
         _tanksConfigs.emplace(number, tmp);
-
-        emit getTanksConfig(_tanksConfigs);
-        _tanksConfigs.clear();
+        _lastGetConfigsData[number] = QTime::currentTime();
     }
 }
 

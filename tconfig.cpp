@@ -19,7 +19,7 @@ TConfig::TConfig(const QString& configFileName) :
         return;
     }
 
-    qDebug() << "Reading configuration from " +  _configFileName;
+    qDebug() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg("Reading configuration from " +  _configFileName);
 
     QSettings ini(_configFileName, QSettings::IniFormat);
 
@@ -86,7 +86,9 @@ bool TConfig::save()
 
     ini.sync();
 
-    qDebug() << "Save configuration to " +  _configFileName;
+    if (_sys_DebugMode) {
+        qDebug() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg("Save configuration to " +  _configFileName);
+    }
 
     return true;
 }

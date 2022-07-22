@@ -62,8 +62,8 @@ private:
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
-    QByteArray readBuffer; //буфер получения данныъ
-    QQueue<QByteArray> cmdQueue; //очередь команд
+    QByteArray _readBuffer; //буфер получения данныъ
+    QQueue<QByteArray> _cmdQueue; //очередь команд
     int tick = 0; //номер такта
 };
 
