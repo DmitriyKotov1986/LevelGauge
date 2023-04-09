@@ -6,21 +6,11 @@
 
 namespace LevelGauge {
 
-static const QString LOG_FILE_NAME = "/Log/LevelGauge.log"; //имя файла лога
-
 class TConfig
 {
 public:
-    static TConfig* config(const QString& configFileName = "")
-    {
-        static TConfig* _config = nullptr;
-
-        if (_config == nullptr){
-            _config = new TConfig(configFileName);
-        }
-
-        return _config;
-    };
+    static TConfig* config(const QString& configFileName = "");
+    static void deleteConfig();
 
 private:
     explicit TConfig(const QString& configFileName);
@@ -41,7 +31,9 @@ public:
     const QString& lg_Host() const { return _lg_Host; }
     quint16 lg_Port() const { return _lg_Port; }
     quint16 lg_TLS() const { return _lg_TLS; }
-    QList<uint8_t> lg_Addresses() const { return _lg_Address; }
+    const QList<uint8_t>& lg_Addresses() const { return _lg_Address; }
+    const QString& lg_userName() const { return _lg_userName; }
+    const QString& lg_password() const { return _lg_password; }
 
     //[SYSTEM]
     int sys_Interval() const { return _sys_Interval; }
@@ -53,12 +45,12 @@ public:
     const QString& srv_UserName() const { return _srv_UserName; }
     const QString& srv_Password() const { return _srv_Password; }
     int srv_MaxRecord() const { return _srv_MaxRecord; }
-    int srv_LastTankConfigID() const { return _srv_LastTankConfigID; }
-    void set_srv_LastTankConfigID(const int srv_LastTankConfigID) { _srv_LastTankConfigID = srv_LastTankConfigID; }
-    int srv_LastTankMeasumentID() const { return _srv_LastTankMeasumentID; }
-    void set_srv_LastTankMeasumentID(const int srv_LastTankMeasumentID) { _srv_LastTankMeasumentID = srv_LastTankMeasumentID; }
+//    int srv_LastTankConfigID() const { return _srv_LastTankConfigID; }
+//    void set_srv_LastTankConfigID(const int srv_LastTankConfigID) { _srv_LastTankConfigID = srv_LastTankConfigID; }
+//    int srv_LastTankMeasumentID() const { return _srv_LastTankMeasumentID; }
+//    void set_srv_LastTankMeasumentID(const int srv_LastTankMeasumentID) { _srv_LastTankMeasumentID = srv_LastTankMeasumentID; }
 
-    const QString& errorString() const { return _errorString; }
+    QString errorString();
     bool isError() const {return _isError; }
 
 private:
@@ -81,6 +73,8 @@ private:
     quint16 _lg_Port = 0;
     quint16 _lg_TLS = 2;
     QList<uint8_t> _lg_Address;
+    QString _lg_userName;
+    QString _lg_password;
 
     //[SYSTEM]
     int _sys_Interval = 60 * 1000;
@@ -92,8 +86,8 @@ private:
     QString _srv_UserName;
     QString _srv_Password;
     int _srv_MaxRecord = 100;
-    int _srv_LastTankConfigID = 0;
-    int _srv_LastTankMeasumentID = 0;
+//    int _srv_LastTankConfigID = 0;
+//   int _srv_LastTankMeasumentID = 0;
 };
 
 } //namespace LevelGaugeStatus

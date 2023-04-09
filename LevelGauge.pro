@@ -11,12 +11,16 @@ CONFIG -= app_bundle
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-        common.cpp \
+        Common/common.cpp \
+        Common/regcheck.cpp \
+        Common/tdbloger.cpp \
+        Common/thttpquery.cpp \
+        fafnir.cpp \
         main.cpp \
         sens.cpp \
         senspassive.cpp \
         tconfig.cpp \
-        thttpquery.cpp \
+        tlevelgauge.cpp \
         tlevelgaugemonitoring.cpp \
         tls2.cpp \
         tls4.cpp
@@ -27,11 +31,14 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    common.h \
+    Common/common.h \
+    Common/regcheck.h \
+    Common/tdbloger.h \
+    Common/thttpquery.h \
+    fafnir.h \
     sens.h \
     senspassive.h \
     tconfig.h \
-    thttpquery.h \
     tlevelgauge.h \
     tlevelgaugemonitoring.h \
     tls2.h \
@@ -39,3 +46,5 @@ HEADERS += \
 
 DISTFILES += \
     ToDo
+
+RC_ICONS += res/LevelGauge.ico

@@ -8,7 +8,9 @@
 #include <QTimer>
 #include <QTextStream>
 #include <QByteArray>
-#include <QQueue>
+#include <QMap>
+#include <QDateTime>
+
 //My
 #include "tlevelgauge.h"
 #include "tconfig.h"
@@ -20,7 +22,7 @@ class SensPassive final : public TLevelGauge
     Q_OBJECT
 
 public:
-    explicit SensPassive(LevelGauge::TConfig* cnf, QObject *parent = nullptr);
+    explicit SensPassive(QObject *parent = nullptr);
     ~SensPassive();
 
 public slots:
@@ -32,7 +34,8 @@ private slots:
     void readyReadSocket();
     void errorOccurredSocket(QAbstractSocket::SocketError);
     void getData();
-    void watchDocTimeout();
+    void watchDocTimeout(); //таймайт ватчдога
+    void sendData(); //отправляет сигналы с готовыми данными
 
 private:
     void transferReset();
@@ -49,9 +52,13 @@ private:
     QTcpSocket* _socket = nullptr;
     QTimer* _getDataTimer = nullptr;
     QTimer* _watchDoc = nullptr;
+    QTimer* _sendDataTimer = nullptr;
 
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
+
+    QMap<uint8_t, QDateTime> _lastGetMeausumentsData; //ключ - адрес резервуара, значение время последнего получения данных о измерениях
+    QMap<uint8_t, QDateTime> _lastGetConfigsData; //ключ - адрес резервуара, значение время последнего получения данных конфигурации
 };
 
 } //namespace LevelGauge

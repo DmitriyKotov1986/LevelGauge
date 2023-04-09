@@ -20,7 +20,7 @@ class TLS4 final : public TLevelGauge
     Q_OBJECT
 
 public:
-    explicit TLS4(LevelGauge::TConfig* cnf, QObject *parent = nullptr);
+    explicit TLS4(QObject *parent = nullptr);
     ~TLS4();
 
 public slots:
@@ -62,8 +62,8 @@ private:
     TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
-    QByteArray readBuffer; //буфер получения данныъ
-    QQueue<QByteArray> cmdQueue; //очередь команд
+    QByteArray _readBuffer; //буфер получения данныъ
+    QQueue<QByteArray> _cmdQueue; //очередь команд
     int tick = 0; //номер такта
 };
 

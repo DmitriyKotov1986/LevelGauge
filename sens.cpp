@@ -2,35 +2,47 @@
 
 //Qt
 #include <QCoreApplication>
+
 //My
-#include "common.h"
+#include "Common/common.h"
 
 using namespace LevelGauge;
 
-Sens::Sens(LevelGauge::TConfig* cnf, QObject* parent) :
-    TLevelGauge(parent),
-    _cnf(cnf)
+using namespace Common;
+
+Sens::Sens(QObject* parent)
+    : TLevelGauge(parent)
+    , _cnf(TConfig::config())
 {
-    Q_ASSERT(cnf != nullptr);
+    Q_CHECK_PTR(_cnf);
 }
 
 Sens::~Sens()
 {
-//    Q_ASSERT(_watchDoc != nullptr);
+    Q_CHECK_PTR(_watchDoc);
 
-    if (_socket != nullptr) {
-        if (_socket->isOpen()) {
+    if (_socket != nullptr)
+    {
+        if (_socket->isOpen())
+        {
            _socket->disconnectFromHost();
         }
         _socket->deleteLater();
     }
 
-    if (_watchDoc != nullptr) {
+    if (_watchDoc != nullptr)
+    {
         _watchDoc->deleteLater();
     }
 
-    if (_getDataTimer != nullptr) {
+    if (_getDataTimer != nullptr)
+    {
         _getDataTimer->deleteLater();
+    }
+
+    if (_sendDataTimer != nullptr)
+    {
+        _sendDataTimer->deleteLater();
     }
 }
 
@@ -47,6 +59,11 @@ void Sens::start()
     _watchDoc = new QTimer();
     QObject::connect(_watchDoc, SIGNAL(timeout()), SLOT(watchDocTimeout()));
     _watchDoc->setSingleShot(true);
+
+    //send data timer
+    _sendDataTimer = new QTimer();
+    QObject::connect(_sendDataTimer, SIGNAL(timeout()), SLOT(sendData()));
+    _sendDataTimer->start(60000);
 
     getData();
 }
@@ -67,8 +84,8 @@ void Sens::readyReadSocket()
     //"\xB5\x01\x04\x8F\x03\xB6\xE1" - error message
 
     //считываем буфер
-    readBuffer += _socket->readAll();
-    parseAnswer(readBuffer);
+    _readBuffer += _socket->readAll();
+    parseAnswer(_readBuffer);
 
     sendNextCmd();
 }
@@ -82,7 +99,8 @@ void Sens::errorOccurredSocket(QAbstractSocket::SocketError)
 void Sens::getData()
 {
     //раз в 100 тактов запрашиваем конфигурацию резервуаров
-    if (((tick % 100) == 0) || (tick == 0)) {
+    if (((tick % 100) == 0) || (tick == 0))
+    {
         upDataTanksConfigs();
     }
     upDataTanksMeasuments();
@@ -97,20 +115,39 @@ void Sens::watchDocTimeout()
 
     emit errorOccurred("Connection timeout.");
 
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         _socket->disconnectFromHost();
+    }
+}
+
+void Sens::sendData()
+{
+    if (!_tanksMeasuments.isEmpty())
+    {
+        emit getTanksMeasument(_tanksMeasuments);
+        _tanksMeasuments.clear();
+    }
+
+    if (!_tanksConfigs.isEmpty())
+    {
+        emit getTanksConfig(_tanksConfigs);
+        _tanksConfigs.clear();
     }
 }
 
 void Sens::sendCmd(const QByteArray &cmd)
 {
     //если _socket еще не определен - значит передача данных еще не идет
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         return;
     }
     //если пришла пустая команда - запускаем отрпавку данных
-    if (cmd.isEmpty()) {
-        if (!cmdQueue.isEmpty()) {
+    if (cmd.isEmpty())
+    {
+        if (!_cmdQueue.isEmpty())
+        {
             _socket = new QTcpSocket;
             QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
             QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
@@ -124,46 +161,52 @@ void Sens::sendCmd(const QByteArray &cmd)
         }
     }
     else {
-        cmdQueue.enqueue(cmd);
+        _cmdQueue.enqueue(cmd);
     }
 }
 
 void Sens::sendNextCmd()
 {
-    Q_ASSERT(_socket != nullptr);
+    Q_CHECK_PTR(_socket);
 
     //все команды отправлены, или произошла ошибка - выходим
-    if (cmdQueue.isEmpty() || (!_socket->isOpen())) {
+    if (_cmdQueue.isEmpty() || (!_socket->isOpen()))
+    {
         _socket->disconnectFromHost();
         //далее ждем сигнал disconnect()
         //отключение происходит в обработчике сигнала QTcpSocket::disconnect()  - disconnentedSocket()
     }
-    else {
+    else
+    {
         //очищаем буфер
-        readBuffer.clear();
-        QByteArray cmd = cmdQueue.dequeue();
+        _readBuffer.clear();
+        QByteArray cmd = _cmdQueue.dequeue();
 
         //qDebug() << "Send>>" << cmd.toHex('|');
         _socket->write(cmd);
 
-        writeDebugLogFile("LG request:", QString(cmd.toHex('|')));
+        Common::writeDebugLogFile("LG request:", QString(cmd.toHex('|')));
     }
 }
 
 void Sens::transferReset()
 {
-    Q_ASSERT(_socket != nullptr);
-    Q_ASSERT(_watchDoc != nullptr);
+    Q_CHECK_PTR(_socket);
+    Q_CHECK_PTR(_watchDoc);
 
     //тормозим watchDoc
-   if (_watchDoc->isActive()) {
+    if (_watchDoc->isActive())
+    {
         _watchDoc->stop();
     }
 
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         //закрываем соединение
-        if (_socket->isOpen()) {
+        if (_socket->isOpen())
+        {
             _socket->disconnectFromHost();
+            _socket->waitForDisconnected(5000);
            //тут может второй раз прилететь событие disconnect()
         }
 
@@ -171,12 +214,13 @@ void Sens::transferReset()
         _socket = nullptr;
     }
 
-    readBuffer.clear();
+    _readBuffer.clear();
 }
 
 void Sens::upDataTanksConfigs()
 {
-    for (const auto& addressItem: _cnf->lg_Addresses()) {
+    for (const auto& addressItem: _cnf->lg_Addresses())
+    {
         QByteArray cmd;
         cmd.push_back(char(0xB5));         // <-start
         cmd.push_back(char(addressItem));  // <-address
@@ -191,7 +235,8 @@ void Sens::upDataTanksConfigs()
 
 void Sens::upDataTanksMeasuments()
 {
-    for (const auto& addressItem: _cnf->lg_Addresses()) {
+    for (const auto& addressItem: _cnf->lg_Addresses())
+    {
         QByteArray cmd;
         cmd.push_back(char(0xB5));         // <-start
         cmd.push_back(char(addressItem));  // <-address
@@ -209,7 +254,8 @@ unsigned char Sens::CRC(const QByteArray &cmd)
     // на входе пакет данных без CRC
     unsigned char res = 0;
 
-    for (int i = 1; i < cmd.length(); ++i) {
+    for (int i = 1; i < cmd.length(); ++i)
+    {
         res += cmd[i];
     }
 
@@ -219,6 +265,7 @@ unsigned char Sens::CRC(const QByteArray &cmd)
 float Sens::float24ToFloat32(const QByteArray &number)
 {
     Q_ASSERT(number.length() == 3);
+
     unsigned char tmp[4]; // промежуточный массив
     float out; // обычный float
     // обнуляем
@@ -235,30 +282,34 @@ void Sens::parseAnswer(QByteArray data)
 {
     //qDebug() << "Answer>>" << data.toHex('|');
 
-    LevelGauge::writeDebugLogFile("LG answer:", QString(data.toHex('|')));
+    writeDebugLogFile("LG answer:", QString(data.toHex('|')));
 
     //проверяем длину
-    if (data.length() < 10) {
-        emit errorOccurred("parseAnswer: message so short. Data size:" + QString::number(data.size()) + ". Message ignored.");
+    if (data.length() < 10)
+    {
+        emit errorOccurred("Message so short. Data size:" + QString::number(data.size()) + ". Message ignored.");
         return;
     }
 
     //проверяем стартовый символ
-    if  (data[0] != char(0xB5)) {
-        emit errorOccurred("parseAnswer: can not find start data message. Data size:" + QString::number(data.size()) + ". Message ignored.");
+    if  (data[0] != char(0xB5))
+    {
+        emit errorOccurred("Can not find start data message. Data size:" + QString::number(data.size()) + ". Message ignored.");
         return;
     }
 
     //проверяем направление отправки
-    if  ((data[3] & 0b10000000) != 0b10000000) {
-        emit errorOccurred("parseAnswer: sender is not levelgauge. Message ignored.");
+    if  ((data[3] & 0b10000000) != 0b10000000)
+    {
+        emit errorOccurred("Sender is not levelgauge. Message ignored.");
         return;
     }
 
 
     uint8_t dataType = data[4]; //опреляем тип данныхю если 0x01 - измеренияб 0x20 -конфигурация резервуара
-    if (!(dataType == 0x01 || dataType == 0x20)) {
-        emit errorOccurred("parseAnswer: Undefine data type. Message ignored.");
+    if (!(dataType == 0x01 || dataType == 0x20))
+    {
+        emit errorOccurred("Undefine data type. Message ignored.");
         return;
     }
 
@@ -268,8 +319,9 @@ void Sens::parseAnswer(QByteArray data)
     data.remove(data.length() - 1, 1);
 
     //проверяем CRC
-    if (Sens::CRC(data) != CRC) {
-        emit errorOccurred("parseAnswer: incorrect CRC. Message ignored. Packet: " + QString::number(CRC, 16) + " func: " + QString::number(Sens::CRC(data), 16));
+    if (Sens::CRC(data) != CRC)
+    {
+        emit errorOccurred("Incorrect CRC. Message ignored. Packet: " + QString::number(CRC, 16) + " func: " + QString::number(Sens::CRC(data), 16));
         return;
     }
     //удаляем первый (0xB5)
@@ -279,8 +331,9 @@ void Sens::parseAnswer(QByteArray data)
     //первый байт - адрес устройства
     uint8_t number = 0;
     dataStream >> number;
-    if (!_cnf->lg_Addresses().contains(number)) {
-        emit errorOccurred("parseTanksMeasument: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
+    if (!_cnf->lg_Addresses().contains(number))
+    {
+        emit errorOccurred("Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
         return;
     }
 
@@ -291,53 +344,36 @@ void Sens::parseAnswer(QByteArray data)
     dataStream >> direction;
 
     //далее идут данные. их читаем по 4 бата. первый байт - номер параметра, потом 3 байта - данные
-    if (dataType == 0x01) {
+    if (dataType == 0x01)
+    {
         TLevelGauge::TTankMeasument tmp = parseTankMeasument(dataStream);
-        //проверям полученные значения
-        if ((tmp.volume < 10) || (tmp.volume > 10000000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.mass) < 10 || (tmp.mass > 10000000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Mass:" + QString::number(tmp.mass) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.density < 500.0) || (tmp.density > 1200.0)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Density:" + QString::number(tmp.density) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.height < 10) || (tmp.height > 20000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Height:" + QString::number(tmp.height) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.temp < -60.0)||(tmp.temp > 60.0)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Temp:" + QString::number(tmp.temp) + " Tank ignored.");
-            return;
-        }
+        //проверям полученные значения 
         tmp.dateTime = QDateTime::currentDateTime();
+        if (!checkMeasument(number, tmp))
+        {
+            return;
+        }
 
         _tanksMeasuments.emplace(number, tmp);
-
-        emit getTanksMeasument(_tanksMeasuments);
-        _tanksMeasuments.clear();
     }
     else if (dataType == 0x20) {
         TLevelGauge::TTankConfig tmp = parseTankConfig(dataStream);
         //проверям полученные значения
-        if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)){
-            emit errorOccurred("parseTanksDiametr: Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp.diametr) + " Value ignored.");
+        if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
+            emit errorOccurred("Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp.diametr) + " Value ignored.");
+
             return;
         }
-        if (((tmp.volume < 10) || (tmp.volume > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
-            emit errorOccurred("parseTanksVolume: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Value ignored.");
+        if (((tmp.volume < 10) || (tmp.volume > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
+            emit errorOccurred("Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Value ignored.");
+
             return;
         }
         tmp.dateTime = QDateTime::currentDateTime();
 
         _tanksConfigs.emplace(number, tmp);
-
-        emit getTanksConfig(_tanksConfigs);
-        _tanksConfigs.clear();
     }
 }
 
@@ -348,7 +384,8 @@ TLevelGauge::TTankMeasument Sens::parseTankMeasument(QDataStream &dataStream)
     //данный тип уровнемера не измеряет температурную компенсацию
     tmp.TKCorrect = 0;
     uint8_t code = 0xFF;
-    while (!dataStream.atEnd() && (code != 0)) {
+    while (!dataStream.atEnd() && (code != 0))
+    {
         dataStream >> code;
 
         char* tmpFloat = new char(3);
@@ -357,7 +394,8 @@ TLevelGauge::TTankMeasument Sens::parseTankMeasument(QDataStream &dataStream)
         float value = float24ToFloat32(float24);
         delete tmpFloat;
 
-        switch (code) {
+        switch (code)
+        {
         //уровень, м
         case 0x01: { tmp.height = value * 1000.0; break; }
         //температура, гр. ц.
@@ -374,8 +412,9 @@ TLevelGauge::TTankMeasument Sens::parseTankMeasument(QDataStream &dataStream)
         case 0x07: { tmp.volume = value * 1000.0; break; }
         //масса м
         case 0x08: { tmp.water = value * 1000.0; break; }
-        default : {
-            emit errorOccurred("parseTankMeasument: incorrect parametr address: " + QString::number(code, 16));
+        default :
+        {
+            emit errorOccurred("Incorrect parametr address: " + QString::number(code, 16));
         }
         }
     }
@@ -395,7 +434,8 @@ TLevelGauge::TTankConfig Sens::parseTankConfig(QDataStream &dataStream)
     tmp.offset = 0;
 
     uint8_t code = 0xFF;
-    while (!dataStream.atEnd() && (code != 0)) {
+    while (!dataStream.atEnd() && (code != 0))
+    {
         dataStream >> code;
 
         char* tmpFloat = new char(3);
@@ -404,7 +444,8 @@ TLevelGauge::TTankConfig Sens::parseTankConfig(QDataStream &dataStream)
         float value = float24ToFloat32(float24);
         delete tmpFloat;
 
-        switch (code) {
+        switch (code)
+        {
         //высота, м
         case 0x25: { tmp.diametr = value * 1000.0; break; }
         //объем, м3
@@ -427,8 +468,9 @@ TLevelGauge::TTankConfig Sens::parseTankConfig(QDataStream &dataStream)
         case 0xe4:
         case 0xe5:{ break; }
 
-        default : {
-            emit errorOccurred("parseTankConfig: incorrect parametr address: " + QString::number(code, 16));
+        default:
+        {
+            emit errorOccurred("Incorrect parametr address: " + QString::number(code, 16));
         }
         }
     }

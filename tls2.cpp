@@ -2,35 +2,42 @@
 
 //Qt
 #include <QCoreApplication>
+
 //My
-#include "common.h"
+#include "Common/common.h"
 
 using namespace LevelGauge;
 
-TLS2::TLS2(LevelGauge::TConfig* cnf, QObject* parent) :
-    TLevelGauge(parent),
-    _cnf(cnf)
+using namespace Common;
+
+TLS2::TLS2(QObject* parent)
+    : TLevelGauge(parent)
+    , _cnf(TConfig::config())
 {
-    Q_ASSERT(cnf != nullptr);
+    Q_CHECK_PTR(_cnf);
 }
 
 TLS2::~TLS2()
 {
-    Q_ASSERT(_watchDoc != nullptr);
+    Q_CHECK_PTR(_watchDoc);
 
     if (_socket != nullptr) {
-        if (_socket->isOpen()) {
-           _socket->disconnectFromHost();
+        if (_socket->isOpen())
+        {
+           _socket->abort();
         }
-        _socket->deleteLater();
+
+        delete _socket;
     }
 
-    if (_watchDoc != nullptr) {
-        _watchDoc->deleteLater();
+    if (_watchDoc != nullptr)
+    {
+        delete _watchDoc;
     }
 
-    if (_getDataTimer != nullptr) {
-        _getDataTimer->deleteLater();
+    if (_getDataTimer != nullptr)
+    {
+        delete _getDataTimer;
     }
 }
 
@@ -70,7 +77,8 @@ void TLS2::parseTanksMeasument(const QByteArray& data)
     //Пропускаем 11 строчек
     skipLine(textStream, 11);
     //парсим таблицу с данными
-    while (!textStream.atEnd())  {
+    while (!textStream.atEnd())
+    {
         TLevelGauge::TTankMeasument tmp;
         uint number = 0;
         textStream >> number;
@@ -88,30 +96,11 @@ void TLS2::parseTanksMeasument(const QByteArray& data)
         textStream.readLine();
 
         //проверям полученные значения
-        if ((number < 1) || (number > 6)) {
-            emit errorOccurred("parseTanksMeasument: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
+        if (!checkMeasument(number, tmp))
+        {
             continue;
         }
-        if ((tmp.volume < 10) || (tmp.volume > 10000000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Tank ignored.");
-            continue;
-        }
-        if ((tmp.mass) < 10 || (tmp.mass > 10000000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Mass:" + QString::number(tmp.mass) + " Tank ignored.");
-            continue;
-        }
-        if ((tmp.density < 500.0) || (tmp.density > 1200.0)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Density:" + QString::number(tmp.density) + " Tank ignored.");
-            continue;
-        }
-        if ((tmp.height < 10) || (tmp.height > 20000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Height:" + QString::number(tmp.height) + " Tank ignored.");
-            continue;
-        }
-        if ((tmp.temp < -60.0)||(tmp.temp > 60.0)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Temp:" + QString::number(tmp.temp) + " Tank ignored.");
-            continue;
-        }
+
         _tanksMeasuments.insert(number, tmp);
     }
 }
@@ -122,13 +111,17 @@ void TLS2::parseTanksEnabled(const QByteArray& data)
     //Пропускаем 6 строчек
     skipLine(textStream, 6);
 
-    while (!textStream.atEnd())  {
+    while (!textStream.atEnd())
+    {
         uint number;
         textStream >> number;
-        if ((number < 1) || (number > 6)) {
+        if ((number < 1) || (number > 6))
+        {
             emit errorOccurred("parseTanksEnabled: Invalid tank number. Number:" + QString::number(number) + " Value ignored.");
+
             continue;
         }
+
         //считыввем продукт
         QString product;
         textStream >> product;
@@ -136,7 +129,8 @@ void TLS2::parseTanksEnabled(const QByteArray& data)
         QString enabled;
         textStream >> enabled;
         _tanksConfigs[number].enabled = ((enabled == "BK") || (enabled == "ON") || (enabled == "Р'Р?"));
-        if (_tanksConfigs[number].enabled) {
+        if (_tanksConfigs[number].enabled)
+        {
             _tanksConfigs[number].product = product;
         }
 
@@ -150,10 +144,12 @@ void TLS2::parseTanksDiametr(const QByteArray& data)
     //Пропускаем 6 строчек
     skipLine(textStream, 6);
 
-    while (!textStream.atEnd())  {
+    while (!textStream.atEnd())
+    {
         uint number;
         textStream >> number;
-        if ((number < 1) || (number > 6)) {
+        if ((number < 1) || (number > 6))
+        {
             emit errorOccurred("parseTanksDiametr: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
             continue;
         }
@@ -163,7 +159,8 @@ void TLS2::parseTanksDiametr(const QByteArray& data)
         //считываем диаметр
         qint16 tmp;
         textStream >> tmp; //в случае ошибки tmp будет = 0
-        if (((tmp < 10) || (tmp > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)){
+        if (((tmp < 10) || (tmp > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTanksDiametr: Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -183,7 +180,8 @@ void TLS2::parseTanksVolume(const QByteArray& data)
     while (!textStream.atEnd())  {
         uint number;
         textStream >> number;
-        if ((number < 1) || (number > 6)) {
+        if ((number < 1) || (number > 6))
+        {
             emit errorOccurred("parseTanksVolume: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
             continue;
         }
@@ -193,7 +191,8 @@ void TLS2::parseTanksVolume(const QByteArray& data)
 
         qint32 tmp;
         textStream >> tmp;
-        if (((tmp < 10) || (tmp > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
+        if (((tmp < 10) || (tmp > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTanksVolume: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -210,10 +209,12 @@ void TLS2::parseTanksTilt(const QByteArray& data)
     //Пропускаем 6 строчек
     skipLine(textStream, 6);
 
-    while (!textStream.atEnd())  {
+    while (!textStream.atEnd())
+    {
         uint number;
         textStream >> number;
-        if ((number < 1) || (number > 6)) {
+        if ((number < 1) || (number > 6))
+        {
             emit errorOccurred("parseTanksTilt: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
             continue;
         }
@@ -223,7 +224,8 @@ void TLS2::parseTanksTilt(const QByteArray& data)
 
         float tmp;
         textStream >> tmp;
-        if (((tmp < -180.0) || (tmp > 180.0)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
+        if (((tmp < -180.0) || (tmp > 180.0)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTanksTilte: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
             continue;
         }
@@ -242,8 +244,10 @@ void TLS2::parseTanksTCCoef(const QByteArray& data)
     while (!textStream.atEnd())  {
         uint number;
         textStream >> number;
-        if ((number < 1) || (number > 6)) {
+        if ((number < 1) || (number > 6))
+        {
             emit errorOccurred("parseTanksTCCoef: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
+
             continue;
         }
         //игнорируем название продукта
@@ -252,8 +256,10 @@ void TLS2::parseTanksTCCoef(const QByteArray& data)
 
         float tmp;
         textStream >> tmp;
-        if (((tmp < -100) || (tmp > 100)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
+        if (((tmp < -100) || (tmp > 100)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTanksTCCoef: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
+
             continue;
         }
         _tanksConfigs[number].TCCoef = tmp;
@@ -264,7 +270,10 @@ void TLS2::parseTanksTCCoef(const QByteArray& data)
 
 void TLS2::skipLine(QTextStream &stream, const int count)
 {
-    for (int i = 0; i < count; ++i ) stream.readLine();
+    for (int i = 0; i < count; ++i)
+    {
+        stream.readLine();
+    }
 }
 
 void TLS2::parseTanksOffset(const QByteArray &data)
@@ -273,18 +282,23 @@ void TLS2::parseTanksOffset(const QByteArray &data)
     //Пропускаем 5 строчек
     skipLine(textStream, 5);
 
-    while (!textStream.atEnd())  {
+    while (!textStream.atEnd())
+    {
         uint number;
         textStream >> number;
-        if ((number < 1) || (number > 6)) {
+        if ((number < 1) || (number > 6))
+        {
             emit errorOccurred("parseTanksTCCoef: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
+
             continue;
         }
 
         qint16 tmp;
         textStream >> tmp;
-        if (((tmp < -100) || (tmp > 1000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
+        if (((tmp < -100) || (tmp > 1000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTankPffset: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp) + " Value ignored.");
+
             continue;
         }
         _tanksConfigs[number].offset = tmp;
@@ -295,14 +309,16 @@ void TLS2::parseTanksOffset(const QByteArray &data)
 
 void TLS2::parseAnswer(QByteArray &data)
 {
-    LevelGauge::writeDebugLogFile("LG answer:", QString(data));
+    Common::writeDebugLogFile("LG answer:", QString(data));
 
-    if (data.length() < 3) {
+    if (data.length() < 3)
+    {
         emit errorOccurred("Data packet is too short");
         return;
     }
 
-    if (data.left(8) == "9999FF1B") {
+    if (data.left(8) == "9999FF1B")
+    {
         emit errorOccurred("Level gauge return: Undefine command");
         return;
     }
@@ -312,42 +328,53 @@ void TLS2::parseAnswer(QByteArray &data)
 
     QString cmd(data.left(6));
 
-    if (cmd == "I21400") { //показания уровнемера
+    if (cmd == "I21400") //показания уровнемера
+    {
         parseTanksMeasument(data);
         //данные готовы к отправке
-        if (!_tanksMeasuments.isEmpty()) {
+        if (!_tanksMeasuments.isEmpty())
+        {
             emit getTanksMeasument(_tanksMeasuments);
             _tanksMeasuments.clear();
         }
     }
-    else if (cmd == "I60100") {
+    else if (cmd == "I60100")
+    {
         parseTanksEnabled(data);
     }
-    else if (cmd == "I60700") {
+    else if (cmd == "I60700")
+    {
         parseTanksDiametr(data);
     }
-    else if (cmd == "I60400") {
+    else if (cmd == "I60400")
+    {
         parseTanksVolume(data);
     }
-    else if (cmd == "I60800") {
+    else if (cmd == "I60800")
+    {
         parseTanksTilt(data);
     }
-    else if (cmd == "I60900") {
+    else if (cmd == "I60900")
+    {
         parseTanksTCCoef(data);
     }
-    else if (cmd == "I60C00") { //эта команда отправляется последней при получении геометри резервуара
+    else if (cmd == "I60C00") //эта команда отправляется последней при получении геометри резервуара
+    {
         parseTanksOffset(data);
         //данные готовы к отправке
-        if (!_tanksConfigs.isEmpty()) {
+        if (!_tanksConfigs.isEmpty())
+        {
             //записываем дату измерения
-            for (const auto& tankNumber : _tanksConfigs.keys()) {
+            for (const auto& tankNumber : _tanksConfigs.keys())
+            {
                 _tanksConfigs[tankNumber].dateTime = QDateTime::currentDateTime();
             }
             emit getTanksConfig(_tanksConfigs);
             _tanksConfigs.clear();
         }
     }
-    else {
+    else
+    {
         emit errorOccurred("Undefine function in answer. Level gauge will be reboot. Data: " + data);
         sendCmd("S00100"); //перезагружаем уровнемер, если что-то пошло не так
         sendCmd("");
@@ -372,12 +399,15 @@ void TLS2::upDateTanksMeasuments()
 void TLS2::sendCmd(const QByteArray &cmd)
 {
     //если _socket еще не определен - значит передача данных еще не идет
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         return;
     }
     //если пришла пустая команда - запускаем отрпавку данных
-    if (cmd.isEmpty()) {
-        if (!cmdQueue.isEmpty()) {
+    if (cmd.isEmpty())
+    {
+        if (!_cmdQueue.isEmpty())
+        {
             _socket = new QTcpSocket;
             QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
             QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
@@ -390,8 +420,9 @@ void TLS2::sendCmd(const QByteArray &cmd)
             _watchDoc->start(45000);
         }
     }
-    else {
-        cmdQueue.enqueue(char(1) + cmd + char(3));
+    else
+    {
+        _cmdQueue.enqueue(char(1) + cmd + char(3));
     }
 }
 
@@ -400,18 +431,20 @@ void TLS2::sendNextCmd()
     Q_ASSERT(_socket != nullptr);
 
     //все команды отправлены, или произошла ошибка - выходим
-    if (cmdQueue.isEmpty() || (!_socket->isOpen())) {
+    if (_cmdQueue.isEmpty() || (!_socket->isOpen()))
+    {
         _socket->disconnectFromHost();
         //далее ждем сигнал disconnect()
         //отключение происходит в обработчике сигнала QTcpSocket::disconnect()  - disconnentedSocket()
     }
-    else {
+    else
+    {
         //очищаем буфер
-        readBuffer.clear();
-        QByteArray cmd = cmdQueue.dequeue();
+        _readBuffer.clear();
+        QByteArray cmd = _cmdQueue.dequeue();
         _socket->write(cmd);
 
-        writeDebugLogFile("LG request:", QString(cmd));
+        Common::writeDebugLogFile("LG request:", QString(cmd));
     }
 }
 
@@ -421,14 +454,18 @@ void TLS2::transferReset()
     Q_ASSERT(_watchDoc != nullptr);
 
     //тормозим watchDoc
-    if (_watchDoc->isActive()) {
+    if (_watchDoc->isActive())
+    {
         _watchDoc->stop();
     }
 
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         //закрываем соединение
-        if (_socket->isOpen()) {
-            _socket->disconnectFromHost();
+        if (_socket->isOpen())
+        {
+            _socket->abort();
+           // _socket->waitForDisconnected(5000);
            //тут может второй раз прилететь событие disconnect()
         }
 
@@ -436,13 +473,14 @@ void TLS2::transferReset()
         _socket = nullptr;
     }
 
-    readBuffer.clear();
+    _readBuffer.clear();
 }
 
 void TLS2::getData()
 {
     //раз в 100 тактов запрашиваем конфигурацию резервуаров
-    if (((tick % 100) == 0) || (tick == 0)) {
+    if (((tick % 100) == 0) || (tick == 0))
+    {
         upDateTanksConfigs();
     }
     upDateTanksMeasuments();
@@ -457,7 +495,8 @@ void TLS2::watchDocTimeout()
 
     emit errorOccurred("Connection timeout.");
 
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         _socket->disconnectFromHost();
     }
 }
@@ -471,14 +510,17 @@ void TLS2::errorOccurredSocket(QAbstractSocket::SocketError)
 void TLS2::readyReadSocket()
 {
     //считываем буфер
-    readBuffer += _socket->readAll();
+    _readBuffer += _socket->readAll();
 
-    if (readBuffer.size() > 0) {
-        qsizetype posEXT = readBuffer.indexOf(char(3)); //пришел символ 3 - конец пакета
-        if (posEXT != -1) {
-            readBuffer.remove(posEXT, 1); //удаляем <EXT> в конце
-            readBuffer.remove(0, 1); //Удаляем <SOH>  в начале
-            parseAnswer(readBuffer);
+    if (_readBuffer.size() > 0)
+    {
+        qsizetype posEXT = _readBuffer.indexOf(char(3)); //пришел символ 3 - конец пакета
+        if (posEXT != -1)
+        {
+            _readBuffer.remove(posEXT, 1); //удаляем <EXT> в конце
+            _readBuffer.remove(0, 1); //Удаляем <SOH>  в начале
+            parseAnswer(_readBuffer);
+
             //отправляем слудующую
             sendNextCmd();
         }

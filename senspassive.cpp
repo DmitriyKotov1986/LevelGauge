@@ -3,39 +3,52 @@
 //Qt
 #include <QCoreApplication>
 //My
-#include "common.h"
+#include "Common/common.h"
 
 using namespace LevelGauge;
 
-SensPassive::SensPassive(LevelGauge::TConfig* cnf, QObject* parent) :
-    TLevelGauge(parent),
-    _cnf(cnf)
+using namespace Common;
+
+SensPassive::SensPassive(QObject* parent)
+    : TLevelGauge(parent)
+    , _cnf(TConfig::config())
 {
-    Q_ASSERT(cnf != nullptr);
+    Q_CHECK_PTR(_cnf);
 }
 
 SensPassive::~SensPassive()
 {
-    if (_socket != nullptr) {
-        if (_socket->isOpen()) {
+    if (_socket != nullptr)
+    {
+        if (_socket->isOpen())
+        {
            _socket->disconnectFromHost();
         }
         _socket->deleteLater();
     }
 
-    if (_watchDoc != nullptr) {
+    if (_watchDoc != nullptr)
+    {
         _watchDoc->deleteLater();
     }
 
-    if (_getDataTimer != nullptr) {
+    if (_getDataTimer != nullptr)
+    {
         _getDataTimer->deleteLater();
+    }
+
+    if (_sendDataTimer != nullptr)
+    {
+        _sendDataTimer->deleteLater();
     }
 }
 
 void SensPassive::start()
 {
     Q_ASSERT(_socket == nullptr);
+    Q_ASSERT(_sendDataTimer == nullptr);
 
+    //getData
     _getDataTimer = new QTimer();
     QObject::connect(_getDataTimer, SIGNAL(timeout()), SLOT(getData()));
     _getDataTimer->start(_cnf->sys_Interval() * 10);
@@ -45,12 +58,17 @@ void SensPassive::start()
     QObject::connect(_watchDoc, SIGNAL(timeout()), SLOT(watchDocTimeout()));
     _watchDoc->setSingleShot(true);
 
+    //send data timer
+    _sendDataTimer = new QTimer();
+    QObject::connect(_sendDataTimer, SIGNAL(timeout()), SLOT(sendData()));
+    _sendDataTimer->start(60000);
+
     getData();
 }
 
 void SensPassive::connentedSocket()
 {
-    emit errorOccurred(QString("Connect to level gauge success."));
+    //ничего не делаем
 }
 
 void SensPassive::disconnentedSocket()
@@ -78,7 +96,8 @@ void SensPassive::errorOccurredSocket(QAbstractSocket::SocketError)
 void SensPassive::getData()
 {
     //Проверяем все ли хорошо. если _socket != nuppltr значит передача идет и ничего не делаем. Если нет - зоздаем его и мытаемся подключиться
-    if (_socket == nullptr) {
+    if (_socket == nullptr)
+    {
         _socket = new QTcpSocket;
         QObject::connect(_socket, SIGNAL(connected()), SLOT(connentedSocket()));
         QObject::connect(_socket, SIGNAL(readyRead()), SLOT(readyReadSocket()));
@@ -94,36 +113,55 @@ void SensPassive::getData()
 
 void SensPassive::watchDocTimeout()
 {
-    Q_ASSERT(_socket != nullptr);
+     Q_CHECK_PTR(_socket);
 
     emit errorOccurred("Connection timeout.");
 
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         _socket->disconnectFromHost();
+    }
+}
+
+void SensPassive::sendData()
+{
+    if (!_tanksMeasuments.isEmpty())
+    {
+        emit getTanksMeasument(_tanksMeasuments);
+        _tanksMeasuments.clear();
+    }
+
+    if (!_tanksConfigs.isEmpty())
+    {
+        emit getTanksConfig(_tanksConfigs);
+        _tanksConfigs.clear();
     }
 }
 
 void SensPassive::transferReset()
 {
-    Q_ASSERT(_socket != nullptr);
-    Q_ASSERT(_watchDoc != nullptr);
+    Q_CHECK_PTR(_socket);
+    Q_CHECK_PTR(_watchDoc);
 
     //тормозим watchDoc
-   if (_watchDoc->isActive()) {
+   if (_watchDoc->isActive())
+   {
         _watchDoc->stop();
     }
 
-    if (_socket != nullptr) {
+    if (_socket != nullptr)
+    {
         //закрываем соединение
-        if (_socket->isOpen()) {
+        if (_socket->isOpen())
+        {
             _socket->disconnectFromHost();
+            _socket->waitForDisconnected(5000);
            //тут может второй раз прилететь событие disconnect()
         }
 
         _socket->deleteLater();
         _socket = nullptr;
     }
-
 }
 
 unsigned char SensPassive::CRC(const QByteArray &cmd)
@@ -131,7 +169,8 @@ unsigned char SensPassive::CRC(const QByteArray &cmd)
     // на входе пакет данных без CRC
     unsigned char res = 0;
 
-    for (int i = 1; i < cmd.length(); ++i) {
+    for (int i = 1; i < cmd.length(); ++i)
+    {
         res += cmd[i];
     }
 
@@ -156,7 +195,7 @@ float SensPassive::float24ToFloat32(const QByteArray &number)
 void SensPassive::parseAnswer(QByteArray data)
 {
     //проверяем пакет и выходим если он нам не подходит
-    LevelGauge::writeDebugLogFile("Get from LG:", QString(data.toHex('|')));
+    Common::writeDebugLogFile("Get from LG:", QString(data.toHex('|')));
 
     //проверяем длину
     if (data.length() < 10) {
@@ -184,7 +223,8 @@ void SensPassive::parseAnswer(QByteArray data)
     data.remove(data.length() - 1, 1);
 
     //проверяем CRC
-    if (SensPassive::CRC(data) != CRC) {
+    if (SensPassive::CRC(data) != CRC)
+    {
         return;
     }
 
@@ -198,9 +238,13 @@ void SensPassive::parseAnswer(QByteArray data)
     //первый байт - адрес устройства
     uint8_t number = 0;
     dataStream >> number;
-    if (!_cnf->lg_Addresses().contains(number)) {
-      //  return;
+    if (!_cnf->lg_Addresses().contains(number))
+    {
+        emit errorOccurred("parseTanksMeasument: Invalid tank number. Number:" + QString::number(number) + " Tank ignored.");
+        return;
     }
+
+    writeDebugLogFile("Packet is define. Start parsing.", QString("Tank: %1").arg(number));
 
     uint8_t length = 0;
     dataStream >> length;
@@ -209,53 +253,44 @@ void SensPassive::parseAnswer(QByteArray data)
     dataStream >> direction;
 
     //далее идут данные. их читаем по 4 бата. первый байт - номер параметра, потом 3 байта - данные
-    if (dataType == 0x01) {
+    if (dataType == 0x01)
+    {
+        if (_lastGetMeausumentsData.contains(number) && (_lastGetMeausumentsData[number].secsTo(QDateTime::currentDateTime()) < 60)) {
+                return;
+        }
         TLevelGauge::TTankMeasument tmp = parseTankMeasument(dataStream);
-        //проверям полученные значения
-        if ((tmp.volume < 10) || (tmp.volume > 10000000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.mass) < 10 || (tmp.mass > 10000000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Mass:" + QString::number(tmp.mass) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.density < 500.0) || (tmp.density > 1200.0)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Density:" + QString::number(tmp.density) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.height < 10) || (tmp.height > 20000)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Height:" + QString::number(tmp.height) + " Tank ignored.");
-            return;
-        }
-        if ((tmp.temp < -60.0)||(tmp.temp > 60.0)) {
-            emit errorOccurred("parseTanksMeasument: Tank:" + QString::number(number) + " Invalid value received. Temp:" + QString::number(tmp.temp) + " Tank ignored.");
-            return;
-        }
         tmp.dateTime = QDateTime::currentDateTime();
-
+        //проверям полученные значения
+        if (!checkMeasument(number, tmp))
+        {
+            return;
+        }
+        
         _tanksMeasuments.emplace(number, tmp);
-
-        emit getTanksMeasument(_tanksMeasuments);
-        _tanksMeasuments.clear();
+        _lastGetMeausumentsData[number] = QDateTime::currentDateTime();
     }
-    else if (dataType == 0x20) {
+    else if (dataType == 0x20)
+    {
+        if (_lastGetConfigsData.contains(number) && (_lastGetConfigsData[number].secsTo(QDateTime::currentDateTime()) < 60))
+        {
+                return;
+        }
         TLevelGauge::TTankConfig tmp = parseTankConfig(dataStream);
         //проверям полученные значения
-        if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)){
+        if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTanksDiametr: Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp.diametr) + " Value ignored.");
             return;
         }
-        if (((tmp.volume < 10) || (tmp.volume > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled)) {
+        if (((tmp.volume < 10) || (tmp.volume > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
+        {
             emit errorOccurred("parseTanksVolume: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Value ignored.");
             return;
         }
         tmp.dateTime = QDateTime::currentDateTime();
 
         _tanksConfigs.emplace(number, tmp);
-
-        emit getTanksConfig(_tanksConfigs);
-        _tanksConfigs.clear();
+        _lastGetConfigsData[number] = QDateTime::currentDateTime();
     }
 }
 
