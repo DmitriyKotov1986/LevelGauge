@@ -11,7 +11,6 @@
 #include "Common/regcheck.h"
 
 using namespace LevelGauge;
-
 using namespace Common;
 
 int main(int argc, char *argv[])

@@ -1,5 +1,3 @@
-#include "tlevelgaugemonitoring.h"
-
 //Qt
 #include <QDebug>
 #include <QSqlError>
@@ -17,8 +15,9 @@
 #include "fafnir.h"
 #include "Common/common.h"
 
-using namespace LevelGauge;
+#include "tlevelgaugemonitoring.h"
 
+using namespace LevelGauge;
 using namespace Common;
 
 TLevelGaugeMonitoring::TLevelGaugeMonitoring(TConfig* cnf, QObject* parent /* = nullptr*/)
@@ -192,21 +191,20 @@ void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasu
     }
 
 
-    for (const auto& tankNumber : tanksMeasument.keys())
+    for(auto tanksMeasument_it = tanksMeasument.begin(); tanksMeasument_it != tanksMeasument.end(); ++tanksMeasument_it)
     {
         //firebird not support multirow insert
-        TLevelGauge::TTankMeasument tmp = tanksMeasument[tankNumber];
         QString queryText = "INSERT INTO TANKSMEASUMENTS (TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP) "
                             " VALUES ("
-                            + QString::number(tankNumber) + ", " +
-                            "'" + tmp.dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
-                            QString::number(tmp.volume, 'f', 0) + ", " +
-                            QString::number(tmp.mass, 'f', 0) + ", " +
-                            QString::number(tmp.density, 'f', 1) + ", " +
-                            QString::number(tmp.TKCorrect, 'f', 2) + ", " +
-                            QString::number(tmp.height, 'f', 0) + ", " +
-                            QString::number(tmp.water, 'f', 1) + ", " +
-                            QString::number(tmp.temp, 'f', 1) + ")";
+                            + QString::number(tanksMeasument_it.key()) + ", " +
+                            "'" + tanksMeasument_it->dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
+                            QString::number(tanksMeasument_it->volume, 'f', 0) + ", " +
+                            QString::number(tanksMeasument_it->mass, 'f', 0) + ", " +
+                            QString::number(tanksMeasument_it->density, 'f', 1) + ", " +
+                            QString::number(tanksMeasument_it->TKCorrect, 'f', 2) + ", " +
+                            QString::number(tanksMeasument_it->height, 'f', 0) + ", " +
+                            QString::number(tanksMeasument_it->water, 'f', 1) + ", " +
+                            QString::number(tanksMeasument_it->temp, 'f', 1) + ")";
 
         DBQueryExecute(_db, queryText);
     }  
@@ -286,8 +284,8 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
     _sendingTanksConfigsID.clear();
     _sendingTanksMasumentsID.clear();
 
-    QSqlQuery query(_db);
     _db.transaction();
+    QSqlQuery query(_db);
 
     QString queryText = "SELECT FIRST " + QString::number(_cnf->srv_MaxRecord()) + " " +
                        "ID, DATE_TIME, TANK_NUMBER, ENABLED, DIAMETR, VOLUME, TILT, TCCOEF, OFFSET, PRODUCT "
@@ -295,7 +293,8 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
                        "ORDER BY ID";
 
 
-    if (!query.exec(queryText)) {
+    if (!query.exec(queryText))
+    {
        errorDBQuery(_db, query);
     }
 

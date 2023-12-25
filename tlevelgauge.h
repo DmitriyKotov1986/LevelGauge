@@ -1,6 +1,9 @@
 #ifndef TLEVELGAUGE_H
 #define TLEVELGAUGE_H
 
+//STL
+#include <exception>
+
 //Qt
 #include <QObject>
 #include <QDateTime>
@@ -39,13 +42,36 @@ public:
         qint32 mass = -1; //текущая масса
         float density = -1.0; //теккущая плотность
         float TKCorrect = -1000.0; //температураня коррекция плотности
-        qint16 height = -1; //текущий уровеньb
+        qint16 height = -1; //текущий уровень
         float water = -1.0; //текущий уровень воды
         float temp = -273.0; //текущая температура
     };
 
     typedef QHash<quint8, TTankConfig> TTanksConfigs;
     typedef QHash<quint8, TTankMeasument> TTanksMeasuments;
+
+protected:
+    constexpr static const quint8 MAX_TANK_NUMBER = 64;
+    constexpr static const float MIN_TEMP = -273.0f;
+    constexpr static const float MAX_TEMP = 60.0f;
+    constexpr static const qint32 MIN_MASS = 0;
+    constexpr static const qint32 MAX_MASS = 10000000;
+    constexpr static const qint32 MIN_VOLUME = 0;
+    constexpr static const qint32 MAX_VOLUME = 10000000;
+    constexpr static const float MIN_DENSITY = 300.0f;
+    constexpr static const float MAX_DENSITY = 1200.0f;
+    constexpr static const qint16 MIN_HEIGHT = 0;
+    constexpr static const qint16 MAX_HEIGHT = 32000;
+
+    class TParseException
+            : public std::runtime_error
+    {
+    public:
+         TParseException(const QString& msg)
+             : std::runtime_error(msg.toStdString())
+         {
+         }
+    };
 
 public:
     explicit TLevelGauge(QObject* parent = nullptr) : QObject(parent) {};

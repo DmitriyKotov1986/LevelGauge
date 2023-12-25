@@ -53,6 +53,9 @@ private:
     void sendNextCmd();
     void transferReset();
 
+    float parseFloatValue(QTextStream &textStream, quint8 tankNumber, const QString& parametrName);
+    qint64 parseIntValue(QTextStream &textStream, quint8 tankNumber, const QString& parametrName);
+
 private:
     TConfig* _cnf = nullptr;
     QTcpSocket* _socket = nullptr;

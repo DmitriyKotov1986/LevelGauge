@@ -12,6 +12,7 @@
 //My
 #include "Common/thttpquery.h"
 #include "Common/tdbloger.h"
+
 #include "tlevelgauge.h"
 #include "tconfig.h"
 
@@ -62,8 +63,7 @@ private:
 
     QStringList _sendingTanksMasumentsID;//ID записей в таблице Измерений которые сейчас отправляются
     QStringList _sendingTanksConfigsID;  //ID записей в таблице конфигурации емкостей которые сейчас отправляются
-  //  quint64 _maxTanksMasumentsID = 0;
-  //  quint64 _maxTanksConfigsID = 0;
+
 };
 
 } //namespace LevelGauge
