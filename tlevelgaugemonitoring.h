@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QTime>
 #include <QStringList>
+#include <QThread>
 
 //My
 #include "Common/thttpquery.h"
@@ -43,8 +44,8 @@ private:
 
 private slots:
     //уровнемер
-    void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
+    void getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments& tanksMeasument);
+    void getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs& tankConfig);
     void errorOccurredLG(const QString& msg);
     //HTTP
     void sendToHTTPServer();
@@ -52,10 +53,10 @@ private slots:
     void errorOccurredHTTP(const QString& msg); //ошибка передачи данных на се
 
 private:
-    TLevelGauge* _levelGauge = nullptr; //Класс обработчика уровнемера
+    QThread* _levelGaugeThread = nullptr;
     TConfig* _cnf = nullptr; //настройки
     QSqlDatabase _db; //Промежуточная БД
-    Common::THTTPQuery* _HTTPQuery = nullptr;
+    QThread* _HTTPQueryThread = nullptr;
     Common::TDBLoger* _loger = nullptr;
 
     QTimer* _sendHTTPTimer = nullptr; //таймер отправки HTTP запросов

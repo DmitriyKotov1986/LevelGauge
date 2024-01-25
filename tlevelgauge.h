@@ -11,12 +11,13 @@
 #include <QString>
 
 //My
+#include "Common/common.h"
 #include "tconfig.h"
 
 namespace LevelGauge
 {
 
-static const QDateTime DEFAULT_DATETIME = QDateTime::fromString("2000-01-01 00:00:00.001", "yyyy-MM-dd hh:mm:ss.zzz");
+static const QDateTime DEFAULT_DATETIME = QDateTime::fromString("2000-01-01 00:00:00.001", Common::DATETIME_FORMAT);
 
 class TLevelGauge : public QObject
 {
@@ -74,7 +75,7 @@ protected:
     };
 
 public:
-    explicit TLevelGauge(QObject* parent = nullptr) : QObject(parent) {};
+    explicit TLevelGauge(QObject* parent = nullptr);
     virtual ~TLevelGauge() {};
 
 protected:
@@ -84,8 +85,8 @@ public slots:
     virtual void start() = 0;
 
 signals:
-    void getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void getTanksConfig(const TLevelGauge::TTanksConfigs& tankConfig);
+    void getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments& tanksMeasument);
+    void getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs& tankConfig);
     void errorOccurred(const QString& msg);
 };
 

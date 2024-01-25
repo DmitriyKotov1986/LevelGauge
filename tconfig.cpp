@@ -4,6 +4,7 @@
 #include "tconfig.h"
 
 using namespace LevelGauge;
+using namespace Common;
 
 //static
 static TConfig* configPtr = nullptr;
@@ -22,28 +23,27 @@ void TConfig::deleteConfig()
 {
     Q_CHECK_PTR(configPtr);
 
-    if (configPtr != nullptr)
-    {
-        delete configPtr;
-        configPtr = nullptr;
-    }
+    delete configPtr;
+    configPtr = nullptr;
 }
 
 TConfig::TConfig(const QString& configFileName) :
     _configFileName(configFileName)
 {
-    if (_configFileName.isEmpty()) {
-        _isError = true;
+    if (_configFileName.isEmpty())
+    {
         _errorString = "Configuration file name cannot be empty";
+
         return;
     }
-    if (!QFileInfo(_configFileName).exists()) {
-        _isError = true;
+    if (!QFileInfo(_configFileName).exists())
+    {
         _errorString = "Configuration file not exist. File name: " + _configFileName;
+
         return;
     }
 
-    qDebug() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg("Reading configuration from " +  _configFileName);
+    qDebug() << QString("%1 %2").arg(QTime::currentTime().toString(SIMPLY_TIME_FORMAT)).arg("Reading configuration from " +  _configFileName);
 
     QSettings ini(_configFileName, QSettings::IniFormat);
 
@@ -75,18 +75,22 @@ TConfig::TConfig(const QString& configFileName) :
 
     //Database
     ini.beginGroup("DATABASE");
-    _db_Driver = ini.value("Driver", "QODBC").toString();
-    _db_DBName = ini.value("DataBase", "HTTPServerDB").toString();
-    _db_UserName = ini.value("UID", "").toString();
-    _db_Password = ini.value("PWD", "").toString();
-    _db_ConnectOptions = ini.value("ConnectionOprions", "").toString();
-    _db_Port = ini.value("Port", "").toUInt();
-    _db_Host = ini.value("Host", "localhost").toString();
+
+    _db_ConnectionInfo.db_Driver = ini.value("Driver", "QODBC").toString();
+    _db_ConnectionInfo.db_DBName = ini.value("DataBase", "SystemMonitorDB").toString();
+    _db_ConnectionInfo.db_UserName = ini.value("UID", "").toString();
+    _db_ConnectionInfo.db_Password = ini.value("PWD", "").toString();
+    _db_ConnectionInfo.db_ConnectOptions = ini.value("ConnectionOprions", "").toString();
+    _db_ConnectionInfo.db_Port = ini.value("Port", "").toUInt();
+    _db_ConnectionInfo.db_Host = ini.value("Host", "localhost").toString();
+
     ini.endGroup();
 
     ini.beginGroup("SYSTEM");
+
     _sys_Interval = ini.value("Interval", "60000").toInt();
     _sys_DebugMode = ini.value("DebugMode", "0").toBool();
+
     ini.endGroup();
 
     ini.beginGroup("SERVER");
@@ -102,7 +106,11 @@ TConfig::TConfig(const QString& configFileName) :
     _lg_Port = ini.value("Port", "10001").toUInt();
     _lg_TLS = ini.value("TLS", 2).toUInt();
 
-    if ((_lg_TLS == 100) || (_lg_TLS == 101))
+    if ((_lg_TLS == 2) || (_lg_TLS == 4))
+    {
+        //Доп. параметры не нужны
+    }
+    else if ((_lg_TLS == 100) || (_lg_TLS == 101))
     {
         QStringList lgAddressList(ini.value("Addresses", "").toStringList());
         for (const auto& addressItem: lgAddressList)
@@ -111,18 +119,28 @@ TConfig::TConfig(const QString& configFileName) :
             _lg_Address.push_back(addressItem.toUInt(&ok, 16));
             if (!ok)
             {
-                _isError = true;
-                _errorString = "[LEVELGAUGE]/Addresses: " + addressItem + " is not number.";
+                _errorString = "[LEVELGAUGE]/Addresses: " + addressItem + " is not number";
 
                 return;
             }
         }
     }
-    if (_lg_TLS == 200)
+    else if (_lg_TLS == 200)
     {
         _lg_userName = ini.value("UserName", "fafnir").toString();
         _lg_password = ini.value("Password", "fafnir22766").toString();
     }
+    else if (_lg_TLS == 201)
+    {
+        //Доп. параметры не нужны
+    }
+    else
+    {
+         _errorString = "[LEVELGAUGE]/TLS: undefite TLS type";
+
+         return;
+    }
+
 
     ini.endGroup();
 }
@@ -132,7 +150,6 @@ bool TConfig::save()
     QSettings ini(_configFileName, QSettings::IniFormat);
 
     if (!ini.isWritable()) {
-        _isError = true;
         _errorString = "Can not write configuration file " +  _configFileName;
 
         return false;
@@ -144,7 +161,7 @@ bool TConfig::save()
     ini.sync();
 
     if (_sys_DebugMode) {
-        qDebug() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg("Save configuration to " +  _configFileName);
+        qDebug() << QString("%1 %2").arg(QTime::currentTime().toString(SIMPLY_TIME_FORMAT)).arg("Save configuration to " +  _configFileName);
     }
 
     return true;

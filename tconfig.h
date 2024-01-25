@@ -4,6 +4,8 @@
 #include <QString>
 #include <QFile>
 
+#include "Common/Common.h"
+
 namespace LevelGauge {
 
 class TConfig
@@ -19,13 +21,7 @@ public:
     bool save();
 
     //[DATABASE]
-    const QString& db_Driver() const { return _db_Driver; }
-    const QString& db_DBName()  const { return _db_DBName; }
-    const QString& db_UserName() const { return _db_UserName; }
-    const QString& db_Password() const { return _db_Password; }
-    const QString& db_ConnectOptions() const { return _db_ConnectOptions; }
-    const QString& db_Host() const { return _db_Host; }
-    quint16 db_Port() const { return _db_Port; }
+    const Common::DBConnectionInfo& db_ConnectionInfo() const { return _db_ConnectionInfo; }
 
     //[LEVELGAUGE]
     const QString& lg_Host() const { return _lg_Host; }
@@ -45,28 +41,17 @@ public:
     const QString& srv_UserName() const { return _srv_UserName; }
     const QString& srv_Password() const { return _srv_Password; }
     int srv_MaxRecord() const { return _srv_MaxRecord; }
-//    int srv_LastTankConfigID() const { return _srv_LastTankConfigID; }
-//    void set_srv_LastTankConfigID(const int srv_LastTankConfigID) { _srv_LastTankConfigID = srv_LastTankConfigID; }
-//    int srv_LastTankMeasumentID() const { return _srv_LastTankMeasumentID; }
-//    void set_srv_LastTankMeasumentID(const int srv_LastTankMeasumentID) { _srv_LastTankMeasumentID = srv_LastTankMeasumentID; }
 
     QString errorString();
-    bool isError() const {return _isError; }
+    bool isError() const { return !_errorString.isEmpty(); }
 
 private:
     const QString _configFileName;
 
-    bool _isError = false;
     QString _errorString;
 
     //[DATABASE]
-    QString _db_Driver;
-    QString _db_DBName;
-    QString _db_UserName;
-    QString _db_Password;
-    QString _db_ConnectOptions;
-    QString _db_Host;
-    quint16 _db_Port = 0;
+    Common::DBConnectionInfo _db_ConnectionInfo;
 
     //[LEVELGAUDE]
     QString _lg_Host;

@@ -27,89 +27,47 @@ TLevelGaugeMonitoring::TLevelGaugeMonitoring(TConfig* cnf, QObject* parent /* = 
     Q_ASSERT( _cnf != nullptr);
 
     //настраиваем подключениек БД
-    _db = QSqlDatabase::addDatabase(_cnf->db_Driver(), "MainDB");
-    _db.setDatabaseName(_cnf->db_DBName());
-    _db.setUserName(_cnf->db_UserName());
-    _db.setPassword(_cnf->db_Password());
-    _db.setConnectOptions(_cnf->db_ConnectOptions());
-    _db.setPort(_cnf->db_Port());
-    _db.setHostName(_cnf->db_Host());
+    if (!connectToDB(_db, _cnf->db_ConnectionInfo(), "MainDB"))
+    {
+        QString msg = connectDBErrorString(_db);
+        qCritical() << QString("%1 %2").arg(QTime::currentTime().toString(SIMPLY_TIME_FORMAT)).arg(msg);
+        Common::writeLogFile("ERR>", msg);
 
-    //настраиваем подключение БД логирования
-    auto logdb = QSqlDatabase::addDatabase(_cnf->db_Driver(), "LoglogDB");
-    logdb.setDatabaseName(_cnf->db_DBName());
-    logdb.setUserName(_cnf->db_UserName());
-    logdb.setPassword(_cnf->db_Password());
-    logdb.setConnectOptions(_cnf->db_ConnectOptions());
-    logdb.setPort(_cnf->db_Port());
-    logdb.setHostName(_cnf->db_Host());
+        exit(EXIT_CODE::SQL_NOT_CONNECT);
+    }
 
-    _loger = Common::TDBLoger::DBLoger(&logdb, _cnf->sys_DebugMode());
+    //настраиваем БД логирования
+    _loger = Common::TDBLoger::DBLoger(_cnf->db_ConnectionInfo(), "LOG", _cnf->sys_DebugMode());
+    _loger->start();
     if (_loger->isError())
     {
         QString msg = QString("Loger initialization error. Error: %1").arg(_loger->errorString());
-        qCritical() << QString("%1 %2").arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+        qCritical() << QString("%1 %2").arg(QTime::currentTime().toString(SIMPLY_TIME_FORMAT)).arg(msg);
         Common::writeLogFile("ERR>", msg);
 
         exit(EXIT_CODE::START_LOGGER_ERR); // -1
     }
-
-    //создаем поток обработки HTTP Запросов
-    QString url = QString("http://%1:%2/CGI/LEVELGAUGE&%3&%4").arg(_cnf->srv_Host()).arg(_cnf->srv_Port()).
-                    arg(_cnf->srv_UserName()).arg(_cnf->srv_Password());
-    _HTTPQuery = THTTPQuery::HTTPQuery(url, nullptr);
-
-    QThread* HTTPQueryThread = new QThread(this);
-    _HTTPQuery->moveToThread(HTTPQueryThread);
-
-    QObject::connect(this, SIGNAL(sendHTTP(const QByteArray&)), _HTTPQuery, SLOT(send(const QByteArray&)));
-    QObject::connect(_HTTPQuery, SIGNAL(getAnswer(const QByteArray&)), SLOT(getAnswerHTTP(const QByteArray&)));
-    QObject::connect(_HTTPQuery, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredHTTP(const QString&)));
-
-    QObject::connect(this, SIGNAL(finished()), HTTPQueryThread, SLOT(quit())); //сигнал на завершение
-    QObject::connect(HTTPQueryThread, SIGNAL(finished()), HTTPQueryThread, SLOT(deleteLater())); //уничтожиться после остановки
-
-    HTTPQueryThread->start();
-
-   //подключаем уровнемер
-    _levelGauge = loadLG();
-    QThread* levelGaugeThread = new QThread(this);
-    _levelGauge->moveToThread(levelGaugeThread);
-
-    QObject::connect(this, SIGNAL(startLG()), _levelGauge, SLOT(start()));
-    QObject::connect(_levelGauge, SIGNAL(getTanksMeasument(const TLevelGauge::TTanksMeasuments&)),
-                     SLOT(getTanksMeasument(const TLevelGauge::TTanksMeasuments&)));
-    QObject::connect(_levelGauge, SIGNAL(getTanksConfig(const TLevelGauge::TTanksConfigs&)),
-                     SLOT(getTanksConfig(const TLevelGauge::TTanksConfigs&)));
-    QObject::connect(_levelGauge, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredLG(const QString&)));
-
-    QObject::connect(this, SIGNAL(finished()), levelGaugeThread, SLOT(quit())); //сигнал на завершение
-    QObject::connect(levelGaugeThread, SIGNAL(finished()), levelGaugeThread, SLOT(deleteLater())); //уничтожиться после остановки
-
-    levelGaugeThread->start();
-
-    //таймер отправки HTTP запроса
-    _sendHTTPTimer = new QTimer();
-    _sendHTTPTimer->setInterval(_cnf->sys_Interval());
-
-    QObject::connect(_sendHTTPTimer, SIGNAL(timeout()), SLOT(sendToHTTPServer()));
-
-    //инициализируем пременные
-    //_maxTanksMasumentsID = _cnf->srv_LastTankMeasumentID();
-    //_maxTanksConfigsID = _cnf->srv_LastTankConfigID();
 }
 
 TLevelGaugeMonitoring::~TLevelGaugeMonitoring()
 {
-    if (_levelGauge != nullptr)
+    if (_HTTPQueryThread != nullptr)
     {
-        //ничего не делаем. остановится  по сигналу finished
+        _HTTPQueryThread->wait();
+
+        delete _HTTPQueryThread;
+    }
+    if (_levelGaugeThread != nullptr)
+    {
+        _levelGaugeThread->wait();
+
+        delete _levelGaugeThread;
     }
 
     if (_sendHTTPTimer != nullptr)
     {
         _sendHTTPTimer->stop();
-        _sendHTTPTimer->deleteLater();
+        delete _sendHTTPTimer;
     }
 
     if (_db.isOpen())
@@ -122,37 +80,66 @@ TLevelGaugeMonitoring::~TLevelGaugeMonitoring()
     {
         TDBLoger::deleteDBLoger();
     }
-
-    if (_HTTPQuery != nullptr)
-    {
-        THTTPQuery::deleteTHTTPQuery();
-    }
 }
 
 void TLevelGaugeMonitoring::start()
 {
-    Q_CHECK_PTR(_HTTPQuery);
-    Q_CHECK_PTR(_levelGauge);
-    Q_CHECK_PTR(_sendHTTPTimer);
+    Q_ASSERT(_levelGaugeThread == nullptr);
+    Q_ASSERT(_HTTPQueryThread == nullptr);
+    Q_ASSERT(_sendHTTPTimer == nullptr);
 
-    //подключаемся к БД
-    if (!_db.open())
-    {
-        _loger->sendLogMsg(TDBLoger::MSG_CODE::CRITICAL_CODE, QString("Cannot connect to database. Error: %1").arg(_db.lastError().text()));
+    //создаем поток обработки HTTP Запросов
+    const QString url =
+            QString("http://%1:%2/CGI/LEVELGAUGE&%3&%4")
+                .arg(_cnf->srv_Host())
+                .arg(_cnf->srv_Port())
+                .arg(_cnf->srv_UserName())
+                .arg(_cnf->srv_Password());
 
-        emit finished();
+    auto HTTPQuery = THTTPQuery::HTTPQuery(url, nullptr);
 
-        exit(EXIT_CODE::SQL_NOT_OPEN_DB);
-    };
+    _HTTPQueryThread = new QThread(this);
+    HTTPQuery->moveToThread(_HTTPQueryThread);
+
+    QObject::connect(this, SIGNAL(sendHTTP(const QByteArray&)), HTTPQuery, SLOT(send(const QByteArray&)), Qt::QueuedConnection);
+    QObject::connect(HTTPQuery, SIGNAL(getAnswer(const QByteArray&)), SLOT(getAnswerHTTP(const QByteArray&)), Qt::QueuedConnection);
+    QObject::connect(HTTPQuery, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredHTTP(const QString&)), Qt::QueuedConnection);
+
+    QObject::connect(this, SIGNAL(finished()), _HTTPQueryThread, SLOT(quit()), Qt::QueuedConnection); //сигнал на завершение
+    QObject::connect(_HTTPQueryThread, SIGNAL(finished()), HTTPQuery, SLOT(deleteLater())); //уничтожиться после остановки
+
+    _HTTPQueryThread->start();
 
 
-    //запускаем опрос уровнемеров
-    emit startLG();
+   //подключаем уровнемер
+    auto levelGauge = loadLG();
+    Q_CHECK_PTR(levelGauge);
+
+    _levelGaugeThread = new QThread();
+    levelGauge->moveToThread(_levelGaugeThread);
+
+    QObject::connect(_levelGaugeThread, SIGNAL(started()), levelGauge, SLOT(start()), Qt::DirectConnection);
+    QObject::connect(levelGauge, SIGNAL(getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments&)),
+                     SLOT(getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments&)), Qt::QueuedConnection);
+    QObject::connect(levelGauge, SIGNAL(getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs&)),
+                     SLOT(getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs&)), Qt::QueuedConnection);
+    QObject::connect(levelGauge, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredLG(const QString&)), Qt::QueuedConnection);
+
+    QObject::connect(this, SIGNAL(finished()), _levelGaugeThread, SLOT(quit()), Qt::QueuedConnection); //сигнал на завершение
+    QObject::connect(_levelGaugeThread, SIGNAL(finished()), levelGauge, SLOT(deleteLater()), Qt::DirectConnection); //уничтожиться после остановки
+
+    _levelGaugeThread->start();
+
+    //таймер отправки HTTP запроса
+    _sendHTTPTimer = new QTimer();
+    _sendHTTPTimer->setInterval(_cnf->sys_Interval());
+
+    QObject::connect(_sendHTTPTimer, SIGNAL(timeout()), SLOT(sendToHTTPServer()));
 
     //запукаем таймер отправки HTTP запроов
     _sendHTTPTimer->start();
 
-     _loger->sendLogMsg(TDBLoger::MSG_CODE::OK_CODE, "Successfully started");
+    _loger->sendLogMsg(TDBLoger::MSG_CODE::OK_CODE, "Successfully started");
 }
 
 TLevelGauge* TLevelGaugeMonitoring::loadLG()
@@ -179,7 +166,6 @@ TLevelGauge* TLevelGaugeMonitoring::loadLG()
 
 void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasuments& tanksMeasument)
 {
-    Q_CHECK_PTR(_levelGauge);
     Q_CHECK_PTR(_loger);
 
     Q_ASSERT(!tanksMeasument.isEmpty());
@@ -212,7 +198,6 @@ void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasu
 
 void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfigs& tanksConfig)
 {
-    Q_CHECK_PTR(_levelGauge);
     Q_CHECK_PTR(_loger);
 
     Q_ASSERT(!tanksConfig.isEmpty());
@@ -383,16 +368,19 @@ void TLevelGaugeMonitoring::getAnswerHTTP(const QByteArray &answer)
 
     _sending = false;
 
-    if (answer.left(2) == "OK") {
-        if (!_sendingTanksMasumentsID.isEmpty()) {
-            QString queryText = "DELETE FROM TANKSMEASUMENTS "
-                                "WHERE ID IN (" + _sendingTanksMasumentsID.join(",") + ")";
+    if (answer.left(2) == "OK")
+    {
+        if (!_sendingTanksMasumentsID.isEmpty())
+        {
+            const QString queryText = "DELETE FROM TANKSMEASUMENTS "
+                                      "WHERE ID IN (" + _sendingTanksMasumentsID.join(",") + ")";
 
             DBQueryExecute(_db, queryText);
         }
-        if (!_sendingTanksConfigsID.empty()) {
-            QString queryText = "DELETE FROM TANKSCONFIG "
-                                "WHERE ID IN (" + _sendingTanksConfigsID.join(",") + ")";
+        if (!_sendingTanksConfigsID.empty())
+        {
+            const QString queryText = "DELETE FROM TANKSCONFIG "
+                                      "WHERE ID IN (" + _sendingTanksConfigsID.join(",") + ")";
 
             DBQueryExecute(_db, queryText);
         }
@@ -405,12 +393,13 @@ void TLevelGaugeMonitoring::getAnswerHTTP(const QByteArray &answer)
 
         if (neetSending)
         {
-            _loger->sendLogMsg(TDBLoger::INFORMATION_CODE, QString("Not all data were sent to the server. A repeat request will be sent."));
+            _loger->sendLogMsg(TDBLoger::MSG_CODE::INFORMATION_CODE, QString("Not all data were sent to the server. A repeat request will be sent"));
 
             sendToHTTPServer(); //если есть еще данные для отправки - повторяем отправку данных
         }
    }
-   else {
+   else
+    {
        _loger->sendLogMsg(TDBLoger::MSG_CODE::ERROR_CODE, QString("Failed to send data to the server. Server answer: %1").arg(answer));
    }
 }
