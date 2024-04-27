@@ -13,6 +13,8 @@
 #include "sens.h"
 #include "senspassive.h"
 #include "fafnir.h"
+#include "fafnirpassive.h"
+
 #include "Common/common.h"
 
 #include "tlevelgaugemonitoring.h"
@@ -98,7 +100,7 @@ void TLevelGaugeMonitoring::start()
 
     auto HTTPQuery = THTTPQuery::HTTPQuery(url, nullptr);
 
-    _HTTPQueryThread = new QThread(this);
+    _HTTPQueryThread = new QThread();
     HTTPQuery->moveToThread(_HTTPQueryThread);
 
     QObject::connect(this, SIGNAL(sendHTTP(const QByteArray&)), HTTPQuery, SLOT(send(const QByteArray&)), Qt::QueuedConnection);
@@ -151,6 +153,7 @@ TLevelGauge* TLevelGaugeMonitoring::loadLG()
     case 100: return new LevelGauge::Sens();
     case 101: return new LevelGauge::SensPassive();
     case 200: return new LevelGauge::Fafnir();
+    case 201: return new LevelGauge::FafnirPassive();
     default:
     {
         QString msg = "Undefine type of level gauge. Check blok [LEVELGAUGE]/'TLS' in config file";

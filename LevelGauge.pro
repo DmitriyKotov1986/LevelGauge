@@ -15,6 +15,7 @@ LIBS+= -L$$PWD/../../Common/Lib -lCommon
 
 SOURCES += \
         fafnir.cpp \
+        fafnirpassive.cpp \
         main.cpp \
         sens.cpp \
         senspassive.cpp \
@@ -31,6 +32,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     fafnir.h \
+    fafnirpassive.h \
     sens.h \
     senspassive.h \
     tconfig.h \
