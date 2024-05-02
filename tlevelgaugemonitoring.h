@@ -11,7 +11,6 @@
 #include <QThread>
 
 //My
-#include "Common/thttpquery.h"
 #include "Common/tdbloger.h"
 
 #include "tlevelgauge.h"
@@ -20,7 +19,8 @@
 namespace LevelGauge
 {
 
-class TLevelGaugeMonitoring final : public QObject
+class TLevelGaugeMonitoring final
+    : public QObject
 {
     Q_OBJECT
 
@@ -40,12 +40,10 @@ private:
     TLevelGauge* loadLG(); //возвращает класс уровнемера в зависимости от конфигурации (Фабрика)
 
     void saveTanksMasumentToDB(const TLevelGauge::TTanksMeasuments& tanksMeasument); //Сохранение Измерений в БД
-    void saveTanksConfigToDB(const TLevelGauge::TTanksConfigs& tanksConfig); //Сохранение конфирурации резервуаров в БД
 
 private slots:
     //уровнемер
     void getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs& tankConfig);
     void errorOccurredLG(const QString& msg);
     //HTTP
     void sendToHTTPServer();
@@ -63,7 +61,6 @@ private:
     bool _sending = false; //флаг что в текущий момент идет перылка данных.
 
     QStringList _sendingTanksMasumentsID;//ID записей в таблице Измерений которые сейчас отправляются
-    QStringList _sendingTanksConfigsID;  //ID записей в таблице конфигурации емкостей которые сейчас отправляются
 
 };
 

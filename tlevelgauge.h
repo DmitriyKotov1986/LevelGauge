@@ -19,23 +19,12 @@ namespace LevelGauge
 
 static const QDateTime DEFAULT_DATETIME = QDateTime::fromString("2000-01-01 00:00:00.001", Common::DATETIME_FORMAT);
 
-class TLevelGauge : public QObject
+class TLevelGauge
+    : public QObject
 {
     Q_OBJECT
 
 public:
-    struct TTankConfig
-    {
-        QDateTime dateTime = DEFAULT_DATETIME; //время получения данных
-        bool enabled = false;
-        qint16 diametr = -1; //диаметр
-        qint32 volume = -1; //объем
-        float tilt = 360.0; //наклон
-        float TCCoef = -999.0;
-        qint16 offset = 10000;
-        QString product = "na";
-    };
-
     struct  TTankMeasument
     {
         QDateTime dateTime = DEFAULT_DATETIME; //время получения данных
@@ -48,7 +37,6 @@ public:
         float temp = -273.0; //текущая температура
     };
 
-    typedef QHash<quint8, TTankConfig> TTanksConfigs;
     typedef QHash<quint8, TTankMeasument> TTanksMeasuments;
 
 protected:
@@ -86,7 +74,6 @@ public slots:
 
 signals:
     void getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments& tanksMeasument);
-    void getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs& tankConfig);
     void errorOccurred(const QString& msg);
 };
 
@@ -94,6 +81,5 @@ signals:
 
 //декларируем типы для работы сигналах/слотах
 Q_DECLARE_METATYPE(LevelGauge::TLevelGauge::TTanksMeasuments);
-Q_DECLARE_METATYPE(LevelGauge::TLevelGauge::TTanksConfigs);
 
 #endif // TLEVELGAUGE_H

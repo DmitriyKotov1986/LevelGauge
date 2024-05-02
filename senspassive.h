@@ -45,7 +45,6 @@ private:
 
     void parseAnswer(QByteArray data);
     TLevelGauge::TTankMeasument parseTankMeasument(QDataStream& dataStream);
-    TLevelGauge::TTankConfig parseTankConfig(QDataStream& dataStream);
 
 private:
     TConfig* _cnf = nullptr;
@@ -54,11 +53,9 @@ private:
     QTimer* _watchDoc = nullptr;
     QTimer* _sendDataTimer = nullptr;
 
-    TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
     QMap<uint8_t, QDateTime> _lastGetMeausumentsData; //ключ - адрес резервуара, значение время последнего получения данных о измерениях
-    QMap<uint8_t, QDateTime> _lastGetConfigsData; //ключ - адрес резервуара, значение время последнего получения данных конфигурации
 };
 
 } //namespace LevelGauge

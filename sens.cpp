@@ -98,11 +98,6 @@ void Sens::errorOccurredSocket(QAbstractSocket::SocketError)
 
 void Sens::getData()
 {
-    //раз в 100 тактов запрашиваем конфигурацию резервуаров
-    if (((tick % 100) == 0) || (tick == 0))
-    {
-        upDataTanksConfigs();
-    }
     upDataTanksMeasuments();
     sendCmd("");
 
@@ -127,12 +122,6 @@ void Sens::sendData()
     {
         emit getTanksMeasument(_tanksMeasuments);
         _tanksMeasuments.clear();
-    }
-
-    if (!_tanksConfigs.isEmpty())
-    {
-        emit getTanksConfig(_tanksConfigs);
-        _tanksConfigs.clear();
     }
 }
 
@@ -215,22 +204,6 @@ void Sens::transferReset()
     }
 
     _readBuffer.clear();
-}
-
-void Sens::upDataTanksConfigs()
-{
-    for (const auto& addressItem: _cnf->lg_Addresses())
-    {
-        QByteArray cmd;
-        cmd.push_back(char(0xB5));         // <-start
-        cmd.push_back(char(addressItem));  // <-address
-        cmd.push_back(char(0x01));         // <-data length
-        cmd.push_back(char(0b00000010));   // <-command
-        cmd.push_back(char(0x01));
-        cmd.push_back(CRC(cmd));           // <-CRC
-
-        sendCmd(cmd);
-    }
 }
 
 void Sens::upDataTanksMeasuments()
@@ -356,25 +329,6 @@ void Sens::parseAnswer(QByteArray data)
 
         _tanksMeasuments.emplace(number, tmp);
     }
-    else if (dataType == 0x20) {
-        TLevelGauge::TTankConfig tmp = parseTankConfig(dataStream);
-        //проверям полученные значения
-        if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
-        {
-            emit errorOccurred("Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp.diametr) + " Value ignored.");
-
-            return;
-        }
-        if (((tmp.volume < 10) || (tmp.volume > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
-        {
-            emit errorOccurred("Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Value ignored.");
-
-            return;
-        }
-        tmp.dateTime = QDateTime::currentDateTime();
-
-        _tanksConfigs.emplace(number, tmp);
-    }
 }
 
 TLevelGauge::TTankMeasument Sens::parseTankMeasument(QDataStream &dataStream)
@@ -413,62 +367,6 @@ TLevelGauge::TTankMeasument Sens::parseTankMeasument(QDataStream &dataStream)
         //масса м
         case 0x08: { tmp.water = value * 1000.0; break; }
         default :
-        {
-            emit errorOccurred("Incorrect parametr address: " + QString::number(code, 16));
-        }
-        }
-    }
-
-    return tmp;
-}
-
-TLevelGauge::TTankConfig Sens::parseTankConfig(QDataStream &dataStream)
-{
-    //b5|01|3c|82|20|85|6b|3e|21|66|36|40|22|f3|fd|3c|23|83|40|3d|24|00|00|40|25|a3|30|40|26|81|cb|41|2e|39|b4|3c|35|62|de|ba|29|62|30|3f|2a|ba|49|3f|e4|99|64|43|e5|cc|cc|42|33|c0|ca|3d|34|00|00|00|c7
-    TLevelGauge::TTankConfig tmp;
-    //данный тип уровнемера не измеряет температурную компенсацию
-    tmp.enabled = true;
-    tmp.TCCoef = 0.0;
-    tmp.tilt = 0.0;
-    tmp.product = "na";
-    tmp.offset = 0;
-
-    uint8_t code = 0xFF;
-    while (!dataStream.atEnd() && (code != 0))
-    {
-        dataStream >> code;
-
-        char* tmpFloat = new char(3);
-        dataStream.readRawData(tmpFloat, 3);
-        QByteArray float24 = QByteArray::fromRawData(tmpFloat, 3);
-        float value = float24ToFloat32(float24);
-        delete tmpFloat;
-
-        switch (code)
-        {
-        //высота, м
-        case 0x25: { tmp.diametr = value * 1000.0; break; }
-        //объем, м3
-        case 0x26: { tmp.volume = value * 1000.0; break; }
-        case 0x20:
-        case 0x21:
-        case 0x22:
-        case 0x23:
-        case 0x24:
-        case 0x27:
-        case 0x29:
-        case 0x2A:
-        case 0x2B:
-        case 0x2C:
-        case 0x2D:
-        case 0x2E:
-        case 0x33:
-        case 0x34:
-        case 0x35:
-        case 0xe4:
-        case 0xe5:{ break; }
-
-        default:
         {
             emit errorOccurred("Incorrect parametr address: " + QString::number(code, 16));
         }

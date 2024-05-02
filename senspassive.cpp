@@ -130,12 +130,6 @@ void SensPassive::sendData()
         emit getTanksMeasument(_tanksMeasuments);
         _tanksMeasuments.clear();
     }
-
-    if (!_tanksConfigs.isEmpty())
-    {
-        emit getTanksConfig(_tanksConfigs);
-        _tanksConfigs.clear();
-    }
 }
 
 void SensPassive::transferReset()
@@ -198,22 +192,26 @@ void SensPassive::parseAnswer(QByteArray data)
     Common::writeDebugLogFile("Get from LG:", QString(data.toHex('|')));
 
     //проверяем длину
-    if (data.length() < 10) {
+    if (data.length() < 10)
+    {
         return;
     }
 
     //проверяем стартовый символ
-    if  (data[0] != char(0xB5)) {
+    if  (data[0] != char(0xB5))
+    {
         return;
     }
 
     //проверяем направление отправки
-    if  ((data[3] & 0b10000000) != 0b10000000) {
+    if  ((data[3] & 0b10000000) != 0b10000000)
+    {
         return;
     }
 
     uint8_t dataType = data[4]; //опреляем тип данныхю если 0x01 - измеренияб 0x20 -конфигурация резервуара
-    if (!(dataType == 0x01 || dataType == 0x20)) {
+    if (!(dataType == 0x01 || dataType == 0x20))
+    {
         return;
     }
 
@@ -255,11 +253,13 @@ void SensPassive::parseAnswer(QByteArray data)
     //далее идут данные. их читаем по 4 бата. первый байт - номер параметра, потом 3 байта - данные
     if (dataType == 0x01)
     {
-        if (_lastGetMeausumentsData.contains(number) && (_lastGetMeausumentsData[number].secsTo(QDateTime::currentDateTime()) < 60)) {
+        if (_lastGetMeausumentsData.contains(number) && (_lastGetMeausumentsData[number].secsTo(QDateTime::currentDateTime()) < 60))
+        {
                 return;
         }
         TLevelGauge::TTankMeasument tmp = parseTankMeasument(dataStream);
         tmp.dateTime = QDateTime::currentDateTime();
+
         //проверям полученные значения
         if (!checkMeasument(number, tmp))
         {
@@ -268,29 +268,6 @@ void SensPassive::parseAnswer(QByteArray data)
         
         _tanksMeasuments.emplace(number, tmp);
         _lastGetMeausumentsData[number] = QDateTime::currentDateTime();
-    }
-    else if (dataType == 0x20)
-    {
-        if (_lastGetConfigsData.contains(number) && (_lastGetConfigsData[number].secsTo(QDateTime::currentDateTime()) < 60))
-        {
-                return;
-        }
-        TLevelGauge::TTankConfig tmp = parseTankConfig(dataStream);
-        //проверям полученные значения
-        if (((tmp.diametr < 10) || (tmp.diametr > 20000))  && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
-        {
-            emit errorOccurred("parseTanksDiametr: Tank:" + QString::number(number) + " Invalid value received. Diametr:" + QString::number(tmp.diametr) + " Value ignored.");
-            return;
-        }
-        if (((tmp.volume < 10) || (tmp.volume > 10000000)) && (_tanksConfigs.contains(number) && _tanksConfigs[number].enabled))
-        {
-            emit errorOccurred("parseTanksVolume: Tank:" + QString::number(number) + " Invalid value received. Volume:" + QString::number(tmp.volume) + " Value ignored.");
-            return;
-        }
-        tmp.dateTime = QDateTime::currentDateTime();
-
-        _tanksConfigs.emplace(number, tmp);
-        _lastGetConfigsData[number] = QDateTime::currentDateTime();
     }
 }
 
@@ -338,57 +315,3 @@ TLevelGauge::TTankMeasument SensPassive::parseTankMeasument(QDataStream &dataStr
 
     return tmp;
 }
-
-TLevelGauge::TTankConfig SensPassive::parseTankConfig(QDataStream &dataStream)
-{
-    //b5|01|3c|82|20|85|6b|3e|21|66|36|40|22|f3|fd|3c|23|83|40|3d|24|00|00|40|25|a3|30|40|26|81|cb|41|2e|39|b4|3c|35|62|de|ba|29|62|30|3f|2a|ba|49|3f|e4|99|64|43|e5|cc|cc|42|33|c0|ca|3d|34|00|00|00|c7
-    TLevelGauge::TTankConfig tmp;
-    //данный тип уровнемера не измеряет температурную компенсацию
-    tmp.enabled = true;
-    tmp.TCCoef = 0.0;
-    tmp.tilt = 0.0;
-    tmp.product = "na";
-    tmp.offset = 0;
-
-    uint8_t code = 0xFF;
-    while (!dataStream.atEnd() && (code != 0)) {
-        dataStream >> code;
-
-        char* tmpFloat = new char(3);
-        dataStream.readRawData(tmpFloat, 3);
-        QByteArray float24 = QByteArray::fromRawData(tmpFloat, 3);
-        float value = float24ToFloat32(float24);
-        delete tmpFloat;
-
-        switch (code) {
-        //высота, м
-        case 0x25: { tmp.diametr = value * 1000.0; break; }
-        //объем, м3
-        case 0x26: { tmp.volume = value * 1000.0; break; }
-        case 0x20:
-        case 0x21:
-        case 0x22:
-        case 0x23:
-        case 0x24:
-        case 0x27:
-        case 0x29:
-        case 0x2A:
-        case 0x2B:
-        case 0x2C:
-        case 0x2D:
-        case 0x2E:
-        case 0x33:
-        case 0x34:
-        case 0x35:
-        case 0xe4:
-        case 0xe5:{ break; }
-
-        default : {
-            emit errorOccurred("parseTankConfig: incorrect parametr address: " + QString::number(code, 16));
-        }
-        }
-    }
-
-    return tmp;
-}
-

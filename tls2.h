@@ -13,9 +13,11 @@
 #include "tlevelgauge.h"
 #include "tconfig.h"
 
-namespace LevelGauge {
+namespace LevelGauge
+{
 
-class TLS2 final : public TLevelGauge
+class TLS2 final
+    : public TLevelGauge
 {
     Q_OBJECT
 
@@ -37,16 +39,9 @@ private slots:
 private:
     void parseAnswer(QByteArray& data);
     void parseTanksMeasument(const QByteArray& data);
-    void parseTanksEnabled(const QByteArray& data);
-    void parseTanksDiametr(const QByteArray& data);
-    void parseTanksVolume(const QByteArray& data);
-    void parseTanksTilt(const QByteArray& data);
-    void parseTanksTCCoef(const QByteArray& data);
-    void parseTanksOffset(const QByteArray& data);
 
     void skipLine(QTextStream& stream, const int count); //пропускает count строк из потока stream
 
-    void upDateTanksConfigs(); //отправляет набор команд ля получения конфигурации резервуаров
     void upDateTanksMeasuments(); //отправляет набор команд для получение результатов измерений
 
     void sendCmd(const QByteArray &cmd);
@@ -59,7 +54,6 @@ private:
     QTimer* _getDataTimer = nullptr;
     QTimer* _watchDoc = nullptr;
 
-    TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
     QByteArray _readBuffer; //буфер получения данных

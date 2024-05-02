@@ -38,7 +38,6 @@ void FafnirPassive::start()
 
     _getDataTimer = new QTimer();
     QObject::connect(_getDataTimer, SIGNAL(timeout()), SLOT(getData()));
-    _getDataTimer->start(_cnf->sys_Interval());
 
     //readyReadSocket();
 
@@ -68,9 +67,16 @@ void FafnirPassive::connentedSocket()
 
 void FafnirPassive::errorOccurredSocket(QAbstractSocket::SocketError)
 {
-    emit errorOccurred(QString("Socket error.Code: %1. Msg: %2").arg(_socket->error()).arg(_socket->errorString()));
+    emit errorOccurred(QString("Socket error. Code: %1. Msg: %2").arg(_socket->error()).arg(_socket->errorString()));
 
-    transferReset();
+    if (_getDataTimer->isActive())
+    {
+        _socket->disconnectFromHost();
+    }
+    else
+    {
+        transferReset();
+    }
 }
 
 void FafnirPassive::disconnentedSocket()
@@ -85,18 +91,12 @@ void FafnirPassive::transferReset()
     _getDataTimer->stop();
 
     //закрываем соединение
-    if (_socket->isOpen())
-    {
-        _socket->abort();
-       //тут может второй раз прилететь событие disconnect()
-    }
-
     _socket->deleteLater();
     _socket = nullptr;
 
     _readBuffer.clear();
 
-    QTimer::singleShot(5000, [this](){ connectToLevelGauge(); });
+    QTimer::singleShot(60000, [this](){ connectToLevelGauge(); });
 }
 
 float FafnirPassive::parseFloatValue(QTextStream &textStream, bool* ok /* = nullptr */)
@@ -317,6 +317,8 @@ void FafnirPassive::getData()
     cmd.push_back(char(0x03));
     _socket->write(cmd);
     _socket->waitForBytesWritten(5000);
+
+    emit errorOccurred("Timeout get data from level gauge. Try send cmd: i21400");
 
     writeDebugLogFile("LG request:", QString(cmd));
 }

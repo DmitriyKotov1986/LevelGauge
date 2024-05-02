@@ -41,7 +41,6 @@ private:
     void sendNextCmd();
     void transferReset();
 
-    void upDataTanksConfigs(); //отправляет набор команд для получения конфигурации резервуаров
     void upDataTanksMeasuments(); //отправляет набор команд для получение результатов измерений
 
     unsigned char CRC(const QByteArray& cmd);
@@ -49,7 +48,6 @@ private:
 
     void parseAnswer(QByteArray data);
     TLevelGauge::TTankMeasument parseTankMeasument(QDataStream& dataStream);
-    TLevelGauge::TTankConfig parseTankConfig(QDataStream& dataStream);
 
 private:
     TConfig* _cnf = nullptr;
@@ -58,7 +56,6 @@ private:
     QTimer* _watchDoc = nullptr;
     QTimer* _sendDataTimer = nullptr;
 
-    TLevelGauge::TTanksConfigs _tanksConfigs; //очередь конфигураций резервуаров
     TLevelGauge::TTanksMeasuments _tanksMeasuments; //очередь результатов измерений
 
     QByteArray _readBuffer; //буфер получения данныъ

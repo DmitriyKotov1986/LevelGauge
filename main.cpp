@@ -16,6 +16,9 @@ using namespace Common;
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
+
+    qInstallMessageHandler(messageOutput);
+
     //устаналиваем основные настройки
     QCoreApplication::setApplicationName("LevelGauge");
     QCoreApplication::setOrganizationName("OOO 'SA'");

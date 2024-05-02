@@ -16,6 +16,7 @@
 #include "fafnirpassive.h"
 
 #include "Common/common.h"
+#include "Common/thttpquery.h"
 
 #include "tlevelgaugemonitoring.h"
 
@@ -76,6 +77,7 @@ TLevelGaugeMonitoring::~TLevelGaugeMonitoring()
     {
         _db.close();
     }
+
     _loger->sendLogMsg(TDBLoger::MSG_CODE::OK_CODE, "Successfully finished");
 
     if (_loger != nullptr)
@@ -112,7 +114,6 @@ void TLevelGaugeMonitoring::start()
 
     _HTTPQueryThread->start();
 
-
    //подключаем уровнемер
     auto levelGauge = loadLG();
     Q_CHECK_PTR(levelGauge);
@@ -123,8 +124,6 @@ void TLevelGaugeMonitoring::start()
     QObject::connect(_levelGaugeThread, SIGNAL(started()), levelGauge, SLOT(start()), Qt::DirectConnection);
     QObject::connect(levelGauge, SIGNAL(getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments&)),
                      SLOT(getTanksMeasument(const LevelGauge::TLevelGauge::TTanksMeasuments&)), Qt::QueuedConnection);
-    QObject::connect(levelGauge, SIGNAL(getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs&)),
-                     SLOT(getTanksConfig(const LevelGauge::TLevelGauge::TTanksConfigs&)), Qt::QueuedConnection);
     QObject::connect(levelGauge, SIGNAL(errorOccurred(const QString&)), SLOT(errorOccurredLG(const QString&)), Qt::QueuedConnection);
 
     QObject::connect(this, SIGNAL(finished()), _levelGaugeThread, SLOT(quit()), Qt::QueuedConnection); //сигнал на завершение
@@ -199,39 +198,6 @@ void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasu
     }  
 }
 
-void TLevelGaugeMonitoring::saveTanksConfigToDB(const TLevelGauge::TTanksConfigs& tanksConfig)
-{
-    Q_CHECK_PTR(_loger);
-
-    Q_ASSERT(!tanksConfig.isEmpty());
-
-    if (tanksConfig.isEmpty())
-    {
-         _loger->sendLogMsg(TDBLoger::MSG_CODE::INFORMATION_CODE, "No data about tanks config from the level gauge");
-
-        return; //если нечего записывать - выходим
-    }
-
-    for (const auto& numberTank : tanksConfig.keys())
-    {
-        //firebird not support multirow insert
-        TLevelGauge::TTankConfig tmp = tanksConfig[numberTank];
-        QString queryText = "INSERT INTO TANKSCONFIG (TANK_NUMBER, DATE_TIME, ENABLED, DIAMETR, VOLUME, TILT, TCCOEF, OFFSET, PRODUCT) "
-                            "VALUES ( " +
-                            QString::number(numberTank) + ", " +
-                            "'" + tmp.dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
-                            QString::number(tmp.enabled) + ", " +
-                            QString::number(tmp.diametr, 'f', 0) + ", " +
-                            QString::number(tmp.volume, 'f', 0) + ", " +
-                            QString::number(tmp.tilt, 'f', 1) + ", " +
-                            QString::number(tmp.TCCoef, 'f', 2) + ", " +
-                            QString::number(tmp.offset, 'f', 0) + ", " +
-                            "'" + tmp.product + "')";
-
-        DBQueryExecute(_db, queryText);
-    } 
-}
-
 void TLevelGaugeMonitoring::getTanksMeasument(const TLevelGauge::TTanksMeasuments& tanksMeasument)
 {
     Q_CHECK_PTR(_loger);
@@ -240,16 +206,6 @@ void TLevelGaugeMonitoring::getTanksMeasument(const TLevelGauge::TTanksMeasument
 
     _loger->sendLogMsg(TDBLoger::MSG_CODE::INFORMATION_CODE, QString("Data about measuments has been successfully received from the level gauge. "
                                            "Tanks count: %1").arg(tanksMeasument.size()));
-}
-
-void TLevelGaugeMonitoring::getTanksConfig(const TLevelGauge::TTanksConfigs& tanksConfig)
-{
-    Q_CHECK_PTR(_loger);
-
-    saveTanksConfigToDB(tanksConfig);
-
-    _loger->sendLogMsg(TDBLoger::MSG_CODE::INFORMATION_CODE, QString("Data about tanks configuration has been successfully received from the level gauge. "
-                                                   "Tanks count: %1").arg(tanksConfig.size()));
 }
 
 void LevelGauge::TLevelGaugeMonitoring::errorOccurredLG(const QString& msg)
@@ -269,22 +225,7 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
         return;
     }
 
-    _sendingTanksConfigsID.clear();
     _sendingTanksMasumentsID.clear();
-
-    _db.transaction();
-    QSqlQuery query(_db);
-
-    QString queryText = "SELECT FIRST " + QString::number(_cnf->srv_MaxRecord()) + " " +
-                       "ID, DATE_TIME, TANK_NUMBER, ENABLED, DIAMETR, VOLUME, TILT, TCCOEF, OFFSET, PRODUCT "
-                       "FROM TANKSCONFIG "   
-                       "ORDER BY ID";
-
-
-    if (!query.exec(queryText))
-    {
-       errorDBQuery(_db, query);
-    }
 
     //форматируем XML докумен
     QString XMLStr;
@@ -295,28 +236,16 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
     XMLWriter.writeTextElement("AZSCode", _cnf->srv_UserName());
     XMLWriter.writeTextElement("ClientVersion", QCoreApplication::applicationVersion());
 
-    while (query.next())
-    {
-       // qDebug() << Query.value("TANK_NUMBER").toString();
-        XMLWriter.writeStartElement("LevelGaugeConfig");
-        XMLWriter.writeTextElement("DateTime", query.value("DATE_TIME").toDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz"));
-        XMLWriter.writeTextElement("TankNumber", query.value("TANK_NUMBER").toString());
-        XMLWriter.writeTextElement("Enabled", query.value("ENABLED").toString());
-        XMLWriter.writeTextElement("Diametr", query.value("DIAMETR").toString());
-        XMLWriter.writeTextElement("Volume", query.value("VOLUME").toString());
-        XMLWriter.writeTextElement("Tilt", query.value("TILT").toString());
-        XMLWriter.writeTextElement("TCCoef", query.value("TCCOEF").toString());
-        XMLWriter.writeTextElement("Offset", query.value("OFFSET").toString());
-        XMLWriter.writeTextElement("Product", query.value("PRODUCT").toString());
-        XMLWriter.writeEndElement();
+    const auto queryText =
+            QString("SELECT FIRST %1 "
+                        "ID, TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP "
+                    "FROM TANKSMEASUMENTS "
+                    "ORDER BY ID")
+            .arg(_cnf->srv_MaxRecord());
 
-        _sendingTanksConfigsID.push_back("'" + query.value("ID").toString() + "'");
-    }
-
-    queryText = "SELECT FIRST " + QString::number(_cnf->srv_MaxRecord()) + " " +
-                "ID, TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP "
-                "FROM TANKSMEASUMENTS "
-                "ORDER BY ID";
+    _db.transaction();
+    QSqlQuery query(_db);
+    query.setForwardOnly(true);
 
     if (!query.exec(queryText))
     {
@@ -360,7 +289,6 @@ void TLevelGaugeMonitoring::errorOccurredHTTP(const QString& msg)
     _sending = false;
     //очищаем очереди
     _sendingTanksMasumentsID.clear();
-    _sendingTanksConfigsID.clear();
 
     _loger->sendLogMsg(TDBLoger::MSG_CODE::ERROR_CODE, "Error sending data to HTTP server. Msg: " + msg);
 }
@@ -380,17 +308,10 @@ void TLevelGaugeMonitoring::getAnswerHTTP(const QByteArray &answer)
 
             DBQueryExecute(_db, queryText);
         }
-        if (!_sendingTanksConfigsID.empty())
-        {
-            const QString queryText = "DELETE FROM TANKSCONFIG "
-                                      "WHERE ID IN (" + _sendingTanksConfigsID.join(",") + ")";
-
-            DBQueryExecute(_db, queryText);
-        }
 
         //если на удаление было записей _cnf->srv_MaxRecord() значит скорее всего в БД есть еще записи
         //поэтому повторяем отправку данных
-        bool neetSending = (_sendingTanksMasumentsID.size() == _cnf->srv_MaxRecord()) || (_sendingTanksConfigsID.size() == _cnf->srv_MaxRecord());
+        bool neetSending = (_sendingTanksMasumentsID.size() == _cnf->srv_MaxRecord());
 
         _loger->sendLogMsg(TDBLoger::MSG_CODE::INFORMATION_CODE, QString("Data has been successfully sent to the server"));
 

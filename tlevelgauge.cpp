@@ -6,7 +6,6 @@ TLevelGauge::TLevelGauge(QObject *parent)
     : QObject{parent}
 {
     qRegisterMetaType<LevelGauge::TLevelGauge::TTanksMeasuments>("TTanksMeasuments");
-    qRegisterMetaType<LevelGauge::TLevelGauge::TTanksConfigs>("TTanksConfigs");
 }
 
 bool TLevelGauge::checkMeasument(quint8 tankNumber, const TTankMeasument& measument)
