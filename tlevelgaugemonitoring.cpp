@@ -182,14 +182,13 @@ void TLevelGaugeMonitoring::saveTanksMasumentToDB(const TLevelGauge::TTanksMeasu
     for(auto tanksMeasument_it = tanksMeasument.begin(); tanksMeasument_it != tanksMeasument.end(); ++tanksMeasument_it)
     {
         //firebird not support multirow insert
-        QString queryText = "INSERT INTO TANKSMEASUMENTS (TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP) "
+        QString queryText = "INSERT INTO TANKSMEASUMENTS (TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, HEIGHT, WATER, TEMP) "
                             " VALUES ("
                             + QString::number(tanksMeasument_it.key()) + ", " +
                             "'" + tanksMeasument_it->dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz") + "', " +
                             QString::number(tanksMeasument_it->volume, 'f', 0) + ", " +
                             QString::number(tanksMeasument_it->mass, 'f', 0) + ", " +
                             QString::number(tanksMeasument_it->density, 'f', 1) + ", " +
-                            QString::number(tanksMeasument_it->TKCorrect, 'f', 2) + ", " +
                             QString::number(tanksMeasument_it->height, 'f', 0) + ", " +
                             QString::number(tanksMeasument_it->water, 'f', 1) + ", " +
                             QString::number(tanksMeasument_it->temp, 'f', 1) + ")";
@@ -238,7 +237,7 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
 
     const auto queryText =
             QString("SELECT FIRST %1 "
-                        "ID, TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, TCCORRECT, HEIGHT, WATER, TEMP "
+                        "ID, TANK_NUMBER, DATE_TIME, VOLUME, MASS, DENSITY, HEIGHT, WATER, TEMP "
                     "FROM TANKSMEASUMENTS "
                     "ORDER BY ID")
             .arg(_cnf->srv_MaxRecord());
@@ -260,7 +259,6 @@ void TLevelGaugeMonitoring::sendToHTTPServer()
         XMLWriter.writeTextElement("Volume", query.value("VOLUME").toString());
         XMLWriter.writeTextElement("Mass", query.value("MASS").toString());
         XMLWriter.writeTextElement("Density", query.value("DENSITY").toString());
-        XMLWriter.writeTextElement("TCCorrect", query.value("TCCORRECT").toString());
         XMLWriter.writeTextElement("Height", query.value("HEIGHT").toString());
         XMLWriter.writeTextElement("Water", query.value("WATER").toString());
         XMLWriter.writeTextElement("Temp", query.value("TEMP").toString());

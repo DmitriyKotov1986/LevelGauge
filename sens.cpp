@@ -336,7 +336,6 @@ TLevelGauge::TTankMeasument Sens::parseTankMeasument(QDataStream &dataStream)
 // b5|01|20|81|01|a8|64|3f|02|e9|c9|41|03|a7|df|41|04|92|e3|40|05|2e|a8|40|06|30|3d|3f|07|92|e3|40|08|00|00|00|f7
     TLevelGauge::TTankMeasument tmp;
     //данный тип уровнемера не измеряет температурную компенсацию
-    tmp.TKCorrect = 0;
     uint8_t code = 0xFF;
     while (!dataStream.atEnd() && (code != 0))
     {
